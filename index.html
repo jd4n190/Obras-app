@@ -1,0 +1,902 @@
+<!doctype html>
+<html lang="es">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#1C1B19">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-title" content="Obras">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="icon" href="icon-192.png">
+<link rel="apple-touch-icon" href="apple-touch-icon.png">
+<title>Obras · Registro diario</title>
+<style>
+:root{--bg:#F4F2EE;--ink:#1C1B19;--mut:#5F5A52;--line:#E2DED6;--line2:#CFCAC1;--soft:#ECE9E3;--acc:#C2410C;--acc2:#9A3412;--accbg:#FFF7ED;
+--ok:#15803D;--okbg:#DCFCE7;--okfg:#14532D;--warn:#B45309;--warnbg:#FEF3C7;--warnfg:#78350F;--bad:#B91C1C;--badbg:#FEE2E2;--badfg:#7F1D1D}
+*{box-sizing:border-box}
+html,body{margin:0;background:var(--bg);color:var(--ink);font:16px/1.4 system-ui,-apple-system,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif;-webkit-text-size-adjust:100%;font-variant-numeric:tabular-nums}
+button,input,select,textarea{font:inherit;color:inherit}
+button{-webkit-tap-highlight-color:transparent}
+#app{max-width:560px;margin:0 auto;min-height:100dvh}
+#app.wide{max-width:900px}
+.scr{display:flex;flex-direction:column;min-height:100dvh}
+.top{padding:12px 16px 10px;border-bottom:1px solid var(--line);background:var(--bg);position:sticky;top:0;z-index:5;display:flex;flex-direction:column;gap:4px}
+.body{flex:1;padding:16px;display:flex;flex-direction:column;gap:12px}
+.foot{position:sticky;bottom:0;padding:12px 16px calc(12px + env(safe-area-inset-bottom));background:var(--bg);border-top:1px solid var(--line);display:flex;flex-direction:column;gap:8px;z-index:5}
+.card{background:#fff;border:1px solid var(--line);border-radius:14px;padding:14px 16px;display:flex;flex-direction:column;gap:10px}
+h1{margin:0;font-size:24px;font-weight:800;line-height:1.15}
+h2{margin:0;font-size:21px;font-weight:800;line-height:1.2}
+h3{margin:0;font-size:16px;font-weight:700}
+p{margin:0}
+.mut{color:var(--mut)} .sm{font-size:14px} .xs{font-size:13px} .b{font-weight:700}
+.lbl{font-size:13px;font-weight:700;letter-spacing:.06em;text-transform:uppercase;color:var(--mut)}
+.row{display:flex;align-items:center;gap:12px}
+.between{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.col{display:flex;flex-direction:column;gap:2px;min-width:0}
+.grid2{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+.grid3{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.btn{min-height:48px;border-radius:12px;border:1.5px solid var(--ink);background:#fff;font-weight:700;padding:0 16px;cursor:pointer;font-size:15px}
+.btn.p{background:var(--acc);border-color:var(--acc);color:#fff;min-height:56px;font-size:17px;border-radius:14px;width:100%}
+.btn.p[disabled]{background:#8A847A;border-color:#8A847A;cursor:default}
+.btn.o{border:2px solid var(--acc);background:var(--accbg);color:var(--acc2)}
+.btn.d{background:var(--ink);color:#fff}
+.btn.w{width:100%}
+.btn.sm{min-height:44px;font-size:14px;padding:0 12px}
+.btn.ok{background:var(--ok);border-color:var(--ok);color:#fff}
+.btn.bad{border-color:var(--bad);color:var(--bad)}
+.lnk{background:none;border:none;color:var(--acc);font-weight:700;min-height:44px;padding:0 4px;cursor:pointer;font-size:15px;text-decoration:none;display:inline-flex;align-items:center}
+.back{align-self:flex-start;display:flex;align-items:center;gap:2px;min-height:44px;padding:0 8px 0 0;background:none;border:none;font-weight:700;color:var(--acc);cursor:pointer;font-size:16px}
+.chips{display:flex;flex-wrap:wrap;gap:8px}
+.chip{min-height:44px;padding:0 14px;border-radius:22px;border:1.5px solid var(--line2);background:#fff;font-size:15px;font-weight:600;cursor:pointer}
+.chip.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.chip.sm{font-size:13px;padding:0 10px;min-height:40px;border-radius:10px}
+.chip.c-ok{background:var(--okbg);border-color:#86EFAC;color:var(--okfg)}
+.chip.c-no{background:#fff;border-color:#D97706;color:#92400E}
+.seg{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:6px}
+.seg button{min-height:44px;border-radius:10px;border:1.5px solid var(--line2);background:#fff;font-weight:700;font-size:14px;cursor:pointer;padding:0 4px}
+.seg button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.seg button.on.g{background:var(--ok);border-color:var(--ok)}
+.seg button.on.r{background:var(--bad);border-color:var(--bad)}
+.seg button[disabled]{opacity:.45;cursor:default}
+.step{display:flex;align-items:center;gap:10px}
+.step button{flex:none;width:52px;height:52px;border-radius:12px;border:1.5px solid var(--line2);background:#fff;font-size:26px;font-weight:600;cursor:pointer}
+.step button.plus{background:var(--ink);border-color:var(--ink);color:#fff}
+.step input{flex:1;min-width:0;text-align:center;font-size:24px;font-weight:800;border:none;background:transparent;padding:4px 0}
+.step.s button{width:44px;height:44px;font-size:22px}
+.step.s input{font-size:20px;max-width:70px}
+.tag{padding:3px 10px;border-radius:12px;font-size:12px;font-weight:700;white-space:nowrap;flex:none}
+.t-ok{background:var(--okbg);color:var(--okfg)} .t-warn{background:var(--warnbg);color:var(--warnfg)} .t-bad{background:var(--badbg);color:var(--badfg)} .t-n{background:var(--soft);color:var(--ink)}
+.note{padding:10px 12px;border-radius:10px;font-size:14px;font-weight:600;line-height:1.35}
+.n-warn{background:var(--warnbg);color:var(--warnfg)} .n-bad{background:var(--badbg);color:var(--badfg)} .n-ok{background:var(--okbg);color:var(--okfg)} .n-n{background:var(--soft)}
+.bar{height:8px;border-radius:4px;background:var(--soft);overflow:hidden}
+.bar>i{display:block;height:100%;background:var(--acc)}
+.bar>i.g{background:var(--ok)}
+.hero{background:var(--ink);color:#fff;border-radius:16px;padding:16px;display:flex;flex-direction:column;gap:10px}
+.hero .mut{color:#D6D2CA}
+.segs{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.segs i{height:8px;border-radius:4px;background:#45423C}
+.segs i.on{background:#F59E0B}
+.sec{display:flex;align-items:center;gap:14px;width:100%;min-height:68px;padding:12px 14px;background:#fff;border:1px solid var(--line);border-radius:14px;text-align:left;cursor:pointer}
+.dot{flex:none;width:36px;height:36px;border-radius:18px;display:flex;align-items:center;justify-content:center;font-weight:700;font-size:15px}
+.dot.ok{background:var(--ok);color:#fff}
+.dot.no{border:2px solid var(--line2);color:var(--mut)}
+.pill{display:inline-flex;align-items:center;gap:6px;min-height:32px;padding:0 10px;border-radius:16px;font-size:13px;font-weight:700;border:none;cursor:pointer;white-space:nowrap;flex:none}
+.pill i{width:8px;height:8px;border-radius:4px;background:currentColor}
+.p-ok{background:var(--okbg);color:var(--okfg)} .p-warn{background:var(--warnbg);color:var(--warnfg)} .p-n{background:var(--soft);color:var(--mut)}
+.f{width:100%;min-height:48px;padding:10px 12px;border-radius:12px;border:1.5px solid var(--line2);background:#fff;font-size:16px}
+textarea.f{resize:vertical;min-height:80px}
+label.l{font-size:15px;font-weight:700}
+.li{display:flex;align-items:center;gap:12px;min-height:60px;border-bottom:1px solid var(--soft)}
+.li:last-child{border-bottom:none}
+.toast{position:fixed;left:50%;bottom:calc(96px + env(safe-area-inset-bottom));transform:translateX(-50%);background:var(--ink);color:#fff;padding:12px 16px;border-radius:12px;width:max-content;max-width:min(92vw,520px);z-index:60;font-size:15px;line-height:1.35;box-shadow:0 4px 16px rgba(0,0,0,.2)}
+.toast.err{background:var(--bad)}
+.busy{position:fixed;top:0;left:0;height:4px;width:40%;background:var(--acc);z-index:70;animation:mv 1s linear infinite}
+@keyframes mv{from{left:-40%}to{left:100%}}
+.big{font-size:26px;font-weight:800}
+.ok-circle{width:72px;height:72px;border-radius:36px;background:var(--ok);display:flex;align-items:center;justify-content:center}
+.weeks{display:grid;grid-template-columns:repeat(5,minmax(0,1fr));gap:6px}
+.weeks button{min-height:56px;border-radius:12px;border:1.5px solid var(--line2);background:#fff;cursor:pointer;display:flex;flex-direction:column;align-items:center;justify-content:center;gap:1px;padding:2px}
+.weeks button.on{background:var(--ink);border-color:var(--ink);color:#fff}
+.weeks button.r:not(.on){border-color:#D97706}
+.weeks b{font-size:14px} .weeks span{font-size:11px;font-weight:600}
+.conds{display:grid;grid-template-columns:repeat(4,minmax(0,1fr));gap:6px}
+.center{text-align:center}
+.hide{display:none!important}
+.thumbs{display:flex;gap:6px;flex-wrap:wrap}
+.thumbs img{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
+@media (min-width:700px){.body{padding:20px 24px}.top{padding:14px 24px 12px}.foot{padding:12px 24px 16px}}
+</style>
+</head>
+<body>
+<div id="app"></div>
+<input type="file" id="cam" accept="image/*" capture="environment" multiple class="hide">
+<script>
+'use strict';
+const VERSION = '4.1.0';
+const CHECK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L19 7"/></svg>';
+const CHEV = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A847A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
+const BACKI = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
+const GEAR = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.7 1.7 0 0 0 .3 1.8l.1.1a2 2 0 1 1-2.8 2.8l-.1-.1a1.7 1.7 0 0 0-1.8-.3 1.7 1.7 0 0 0-1 1.5V21a2 2 0 1 1-4 0v-.1a1.7 1.7 0 0 0-1.1-1.5 1.7 1.7 0 0 0-1.8.3l-.1.1a2 2 0 1 1-2.8-2.8l.1-.1a1.7 1.7 0 0 0 .3-1.8 1.7 1.7 0 0 0-1.5-1H3a2 2 0 1 1 0-4h.1a1.7 1.7 0 0 0 1.5-1.1 1.7 1.7 0 0 0-.3-1.8l-.1-.1a2 2 0 1 1 2.8-2.8l.1.1a1.7 1.7 0 0 0 1.8.3H9a1.7 1.7 0 0 0 1-1.5V3a2 2 0 1 1 4 0v.1a1.7 1.7 0 0 0 1 1.5 1.7 1.7 0 0 0 1.8-.3l.1-.1a2 2 0 1 1 2.8 2.8l-.1.1a1.7 1.7 0 0 0-.3 1.8V9a1.7 1.7 0 0 0 1.5 1H21a2 2 0 1 1 0 4h-.1a1.7 1.7 0 0 0-1.5 1z"/></svg>';
+const CAM = '<svg width="22" height="22" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M4 8h3l2-3h6l2 3h3v11H4z"/><circle cx="12" cy="13" r="3.5"/></svg>';
+const CLIMAS = ['Soleado', 'Nublado', 'Lluvia'];
+const EVENTOS = ['Nada especial', 'Paralización', 'Orden del supervisor', 'Faltó material', 'Visita de la entidad', 'Incidente o accidente'];
+const SECCIONES = [['avance', 'Avance'], ['personal', 'Personal'], ['equipos', 'Equipos y maquinaria'], ['novedades', 'Clima, novedades y fotos']];
+const UNIDADES = ['m²', 'm³', 'ml', 'kg', 'und', 'global'];
+const COND_CORTO = { pl: 'Planos', ma: 'Material', mo: 'Personal', eq: 'Equipo', fr: 'Frente', tp: 'Previa', ex: 'Externas' };
+const DIAS = ['domingo', 'lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado'];
+const DIAC = ['dom', 'lun', 'mar', 'mié', 'jue', 'vie', 'sáb'];
+const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', 'agosto', 'septiembre', 'octubre', 'noviembre', 'diciembre'];
+
+/* ---------- utilidades ---------- */
+const $ = (s) => document.querySelector(s);
+const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
+const num = (v) => { const n = Number(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) ? n : 0; };
+const fmt = (n) => (Math.round(num(n) * 100) / 100).toLocaleString('es-BO');
+const pad = (n) => String(n).padStart(2, '0');
+const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
+const hoyLocal = () => iso(new Date());
+const addDays = (f, n) => { const d = new Date(f + 'T12:00:00'); d.setDate(d.getDate() + n); return iso(d); };
+const dOf = (f) => new Date(f + 'T12:00:00');
+const fLarga = (f) => { const d = dOf(f); return DIAS[d.getDay()] + ' ' + d.getDate() + ' de ' + MESES[d.getMonth()]; };
+const fCorta = (f) => { const d = dOf(f); return DIAC[d.getDay()] + ' ' + d.getDate(); };
+const fMes = (f) => { const d = dOf(f); return d.getDate() + ' ' + MESES[d.getMonth()].slice(0, 3); };
+const cap = (s) => s.charAt(0).toUpperCase() + s.slice(1);
+const newId = () => ((window.crypto && crypto.randomUUID) ? crypto.randomUUID() : Date.now().toString(36) + Math.random().toString(36).slice(2) + Math.random().toString(36).slice(2)).replace(/-/g, '').slice(0, 24);
+const LS = {
+  get(k, d) { try { const v = localStorage.getItem('oa:' + k); return v == null ? d : JSON.parse(v); } catch (e) { return d; } },
+  set(k, v) { try { localStorage.setItem('oa:' + k, JSON.stringify(v)); } catch (e) { } },
+  del(k) { try { localStorage.removeItem('oa:' + k); } catch (e) { } },
+  keys() { try { return Object.keys(localStorage).filter((k) => k.indexOf('oa:') === 0).map((k) => k.slice(3)); } catch (e) { return []; } },
+};
+
+/* ---------- cola de envíos (se guarda en el celular hasta que haya señal) ---------- */
+const OB = (() => {
+  let dbp = null; const mem = {};
+  const open = () => dbp || (dbp = new Promise((res, rej) => {
+    try {
+      const r = indexedDB.open('obra-app', 1);
+      r.onupgradeneeded = () => r.result.createObjectStore('outbox', { keyPath: 'k' });
+      r.onsuccess = () => res(r.result); r.onerror = () => rej(r.error);
+    } catch (e) { rej(e); }
+  }));
+  const tx = async (mode, fn) => {
+    let db;
+    try { db = await open(); } catch (e) { return fn(null); }
+    return new Promise((res, rej) => {
+      const t = db.transaction('outbox', mode); const st = t.objectStore('outbox'); let out;
+      const r = fn(st); if (r && 'onsuccess' in r) r.onsuccess = () => { out = r.result; };
+      t.oncomplete = () => res(out); t.onerror = () => rej(t.error);
+    });
+  };
+  return {
+    put: (it) => tx('readwrite', (st) => st ? st.put(it) : (mem[it.k] = it, null)),
+    del: (k) => tx('readwrite', (st) => st ? st.delete(k) : (delete mem[k], null)),
+    all: async () => (await tx('readonly', (st) => st ? st.getAll() : null)) || Object.values(mem),
+  };
+})();
+
+/* ---------- estado ---------- */
+const S = {
+  api: LS.get('api', ''), token: LS.get('token', ''), obra: LS.get('obra', ''), data: null, dataFecha: '', view: 'hoy', prev: 'hoy',
+  login: { step: 'login', email: LS.get('email', ''), actual: '', forzado: false }, online: navigator.onLine, pend: [], syncing: false, busy: 0,
+  sol: null, solOk: null, prog: null, progSem: '', progQ: '', nueva: null, installEvt: null, geo: null, enviadoRacha: 0, err: '',
+};
+window.addEventListener('beforeinstallprompt', (e) => { e.preventDefault(); S.installEvt = e; });
+
+/* ---------- conexión con el sistema (Apps Script) ---------- */
+async function api(fn, ...args) {
+  let r;
+  try {
+    r = await fetch(S.api, { method: 'POST', headers: { 'Content-Type': 'text/plain;charset=utf-8' }, body: JSON.stringify({ fn: fn, args: args, token: S.token }), redirect: 'follow' });
+  } catch (e) { const x = new Error('Sin conexión con el sistema.'); x.net = true; throw x; }
+  if (!r.ok) { const x = new Error('El sistema respondió con un error (' + r.status + ').'); x.net = r.status >= 500 || r.status === 429; throw x; }
+  let j;
+  try { j = await r.json(); } catch (e) { const x = new Error('La respuesta no es del sistema de obras. Revisa el enlace en Ajustes y que la implementación tenga acceso "Cualquier usuario".'); throw x; }
+  if (!j.ok) {
+    const x = new Error(String(j.error || 'Error'));
+    if (/^SESION/.test(x.message)) { x.auth = true; x.message = 'Tu sesión venció. Ingresa de nuevo.'; }
+    if (/^NO_AUTORIZADO/.test(x.message)) { x.auth = true; x.message = 'Tu correo no está autorizado o fue desactivado. Habla con el Administrador.'; }
+    if (/^CAMBIAR_CLAVE/.test(x.message)) { x.cambiar = true; x.message = 'Tu contraseña es temporal: crea una nueva para continuar.'; irCambio(true, ''); }
+    if (/^SIN_CLAVE/.test(x.message)) { x.sinClave = true; x.message = x.message.replace(/^SIN_CLAVE:\s*/, ''); }
+    throw x;
+  }
+  return j.data;
+}
+async function withBusy(fn) {
+  S.busy++; renderBusy();
+  try { return await fn(); } finally { S.busy--; renderBusy(); }
+}
+function salirSesion(msg) { S.token = ''; LS.del('token'); S.data = null; S.view = 'login'; S.login.step = 'login'; render(); if (msg) toast(msg, true); }
+function irCambio(forzado, actual) { S.login.step = 'cambio'; S.login.forzado = !!forzado; S.login.actual = actual || ''; S.view = 'login'; render(); }
+
+async function cargar(silencioso) {
+  if (!S.token) return;
+  const cache = LS.get('inicio:' + S.obra, null) || LS.get('inicio:', null);
+  if (!S.data && cache) { S.data = cache.d; S.dataFecha = cache.f; }
+  if (!navigator.onLine) { render(); return; }
+  try {
+    const d = silencioso ? await api('inicio', S.obra) : await withBusy(() => api('inicio', S.obra));
+    S.data = d; S.dataFecha = hoyLocal(); S.obra = d.obra; LS.set('obra', d.obra);
+    LS.set('inicio:' + d.obra, { d: d, f: S.dataFecha }); LS.set('inicio:', { d: d, f: S.dataFecha });
+    S.err = '';
+  } catch (e) {
+    if (e.auth) return salirSesion(e.message);
+    if (e.cambiar) return;
+    if (!e.net) S.err = e.message;
+  }
+  render();
+}
+
+async function contarPend() { S.pend = await OB.all(); renderStatus(); }
+async function enqueue(k, fn, args, label, kind) {
+  await OB.put({ k: k, fn: fn, args: args, label: label, kind: kind, ts: Date.now(), tries: 0, err: '' });
+  await contarPend();
+  sync();
+}
+const PRIO = { sol: 0, parte: 1, foto: 2 };
+async function sync() {
+  if (S.syncing || !S.token || !S.api || !navigator.onLine) return;
+  S.syncing = true; renderStatus();
+  let hubo = false;
+  try {
+    const items = (await OB.all()).sort((a, b) => (PRIO[a.kind] - PRIO[b.kind]) || (a.ts - b.ts));
+    for (const it of items) {
+      if (it.tries >= 3 && it.err && !it.retry) continue;
+      try {
+        await api(it.fn, ...it.args);
+        const cur = (await OB.all()).filter((x) => x.k === it.k)[0];
+        if (cur && cur.ts === it.ts) await OB.del(it.k);
+        hubo = true;
+      } catch (e) {
+        if (e.net) break;
+        if (e.auth) { S.syncing = false; return salirSesion(e.message); }
+        if (e.cambiar) break;
+        it.tries = (it.tries || 0) + 1; it.err = e.message; it.retry = false;
+        await OB.put(it);
+      }
+    }
+  } finally {
+    S.syncing = false;
+    await contarPend();
+    if (hubo) { LS.set('lastSync', new Date().toISOString()); await cargar(true); }
+  }
+}
+window.addEventListener('online', () => { S.online = true; renderStatus(); sync(); cargar(true); });
+window.addEventListener('offline', () => { S.online = false; renderStatus(); });
+setInterval(() => { if (S.pend.length) sync(); }, 30000);
+document.addEventListener('visibilitychange', () => { if (!document.hidden) { sync(); if (S.view === 'hoy') cargar(true); } });
+
+/* ---------- parte del día (borrador en el celular) ---------- */
+function equiposObra() { const D = S.data; return D ? D.cat.equipos.filter((e) => !e.obra || e.obra === S.obra) : []; }
+function draftKey(f) { return 'draft:' + S.obra + ':' + f; }
+function draft() {
+  const f = hoyLocal();
+  let d = LS.get(draftKey(f), null);
+  if (d) return d;
+  const D = S.data || {};
+  const p = D.parteHoy && D.parteHoy.fecha === f ? D.parteHoy : null;
+  d = { fecha: f, avance: {}, personal: {}, equipos: {}, clima_m: '', clima_t: '', eventos: [], nov: '', asiento: '', par_h: 0, par_m: '', secciones: [], estado: 'Borrador', fotos: [] };
+  if (p) {
+    (p.avance || []).forEach((a) => { d.avance[a.plan] = { q: num(a.q), causa: a.causa || '' }; });
+    (p.personal || []).forEach((x) => { d.personal[x.cat] = num(x.q); });
+    (p.equipos || []).forEach((x) => { if (x.id) d.equipos[x.id] = { est: x.est || (num(x.ht) > 0 ? 'Trabajó' : 'Parado'), ht: num(x.ht) }; });
+    Object.assign(d, { clima_m: p.clima_m || '', clima_t: p.clima_t || '', eventos: p.eventos || [], nov: p.nov || '', asiento: p.asiento || '', par_h: num(p.par_h), par_m: p.par_m || '', secciones: p.secciones || [], estado: p.estado || 'Borrador' });
+  } else if (D.parteAyer) {
+    (D.parteAyer.equipos || []).forEach((x) => { if (x.id) d.equipos[x.id] = { est: x.est || 'Trabajó', ht: num(x.ht) || (D.jornada || 8) }; });
+  }
+  LS.set(draftKey(f), d);
+  return d;
+}
+function fotosHoy(d) {
+  const pend = S.pend.filter((x) => x.kind === 'foto' && x.args[0].obra === S.obra && x.args[0].fecha === d.fecha).length;
+  const srv = S.data && S.data.parteHoy && S.data.parteHoy.fecha === d.fecha ? num(S.data.parteHoy.nfotos) : 0;
+  return pend + srv;
+}
+function saveDraft(d) { LS.set(draftKey(d.fecha), d); }
+function partePayload(d, estado) {
+  const D = S.data; const plan = D.plan || []; const J = D.jornada || 8;
+  const avance = Object.keys(d.avance).filter((id) => plan.some((p) => p.id === id)).map((id) => ({ plan: id, q: num(d.avance[id].q), causa: d.avance[id].causa || '' }));
+  const personal = Object.keys(d.personal).filter((c) => d.personal[c] > 0).map((c) => ({ cat: c, q: d.personal[c], h: J }));
+  const equipos = equiposObra().map((e) => {
+    const x = d.equipos[e.id] || { est: 'Trabajó', ht: J }; const t = x.est === 'Trabajó';
+    return { id: e.id, eq: e.nombre, est: x.est, ht: t ? num(x.ht) : 0, hp: t ? 0 : J, mot: t ? '' : x.est };
+  });
+  return { obra: S.obra, fecha: d.fecha, clima_m: d.clima_m, clima_t: d.clima_t, eventos: d.eventos, nov: d.nov, asiento: d.asiento,
+    par_h: d.eventos.indexOf('Paralización') >= 0 ? num(d.par_h) : '', par_m: d.eventos.indexOf('Paralización') >= 0 ? d.par_m : '',
+    personal: personal, equipos: equipos, avance: avance, secciones: d.secciones, estado: estado || d.estado };
+}
+async function guardarSeccion(key) {
+  const d = draft();
+  if (d.secciones.indexOf(key) < 0) d.secciones.push(key);
+  saveDraft(d);
+  await enqueue('parte:' + S.obra + ':' + d.fecha, 'guardarParte', [partePayload(d)], 'Parte del ' + fCorta(d.fecha), 'parte');
+  S.view = 'hoy'; render();
+  toast(navigator.onLine ? 'Guardado.' : 'Guardado en el celular. Se enviará cuando haya señal.');
+}
+function stepFor(p) {
+  const u = String(p.unidad || '').toLowerCase();
+  if (['und', 'u', 'pza', 'pzas', 'global', 'glb', 'pieza', 'unidad'].indexOf(u) >= 0) return 1;
+  const m = num(p.meta);
+  return m >= 200 ? 10 : m >= 50 ? 5 : m >= 8 ? 1 : 0.5;
+}
+
+/* ---------- avisos ---------- */
+let toastT = null;
+function toast(msg, err) {
+  let t = $('#toast');
+  if (!t) { t = document.createElement('div'); t.id = 'toast'; t.setAttribute('role', 'status'); document.body.appendChild(t); }
+  t.className = 'toast' + (err ? ' err' : ''); t.textContent = msg; t.style.display = 'block';
+  clearTimeout(toastT); toastT = setTimeout(() => { t.style.display = 'none'; }, err ? 6000 : 3000);
+}
+function renderBusy() { let b = $('#busy'); if (!b) { b = document.createElement('div'); b.id = 'busy'; b.className = 'busy'; document.body.appendChild(b); } b.style.display = S.busy > 0 ? 'block' : 'none'; }
+function statusHtml() {
+  const n = S.pend.length; const errs = S.pend.filter((x) => x.err).length;
+  let cls = 'p-ok', txt = 'Todo enviado';
+  if (!navigator.onLine) { cls = n ? 'p-warn' : 'p-n'; txt = n ? 'Sin señal · ' + n + ' por enviar' : 'Sin señal'; }
+  else if (errs) { cls = 'p-warn'; txt = errs + ' con error · revisar'; }
+  else if (n) { cls = 'p-warn'; txt = S.syncing ? 'Enviando ' + n + '…' : n + ' por enviar'; }
+  return '<button class="pill ' + cls + '" data-a="go" data-v="ajustes" aria-label="Estado de envío: ' + esc(txt) + '"><i></i>' + esc(txt) + '</button>';
+}
+function renderStatus() { const s = $('#status'); if (s) s.innerHTML = statusHtml(); }
+
+/* ---------- pantallas ---------- */
+const V = {};
+function back(label, v) { return '<button class="back" data-a="go" data-v="' + (v || 'hoy') + '">' + BACKI + esc(label || 'Hoy') + '</button>'; }
+
+V.setup = () => `<div class="scr"><div class="body" style="padding-top:40px;gap:16px">
+  <h1>Obras · Registro diario</h1>
+  <p class="mut">Pega el enlace del sistema de obras. Te lo da el Administrador; termina en <b>/exec</b>.</p>
+  <label class="l" for="apiurl">Enlace del sistema</label>
+  <input id="apiurl" class="f" type="url" inputmode="url" autocomplete="off" placeholder="https://script.google.com/macros/s/…/exec" value="${esc(S.api)}">
+  <button class="btn p" data-a="setApi">Conectar</button>
+</div></div>`;
+
+V.login = () => {
+  const L = S.login;
+  const pwHint = '<p class="xs mut">Al menos 8 caracteres, con letras y números.</p>';
+  let h = '<div class="scr"><div class="body" style="padding-top:40px;gap:14px">';
+  if (L.step === 'login') {
+    h += `<h1>Ingresar</h1><p class="mut">Entra con tu correo y tu contraseña.</p>
+    <label class="l" for="em">Correo</label><input id="em" class="f" type="email" inputmode="email" autocomplete="username" value="${esc(L.email)}">
+    <label class="l" for="pw">Contraseña</label><input id="pw" class="f" type="password" autocomplete="current-password">
+    <button class="btn p" data-a="ingresar">Entrar</button>
+    <button class="lnk" data-a="recInicio">¿Primera vez u olvidaste tu contraseña?</button>`;
+  } else if (L.step === 'rec1') {
+    h += `<h1>Crear o recuperar contraseña</h1><p class="mut">Te enviaremos un código de 6 dígitos a tu correo.</p>
+    <label class="l" for="em">Correo</label><input id="em" class="f" type="email" inputmode="email" autocomplete="username" value="${esc(L.email)}">
+    <button class="btn p" data-a="pedir">Enviar código</button>
+    <button class="lnk" data-a="loginBack">Volver a ingresar</button>`;
+  } else if (L.step === 'rec2') {
+    h += `<h1>Crea tu contraseña</h1><p class="mut">Revisa tu correo <b>${esc(L.email)}</b> (también Spam). El código vence en 10 minutos.</p>
+    <label class="l" for="cod">Código</label><input id="cod" class="f" inputmode="numeric" autocomplete="one-time-code" maxlength="6" style="font-size:28px;letter-spacing:.3em;text-align:center">
+    <label class="l" for="p1">Contraseña nueva</label><input id="p1" class="f" type="password" autocomplete="new-password">
+    <label class="l" for="p2">Repite la contraseña</label><input id="p2" class="f" type="password" autocomplete="new-password">${pwHint}
+    <button class="btn p" data-a="crearClave">Guardar contraseña y entrar</button>
+    <button class="lnk" data-a="recInicio">Pedir otro código</button>`;
+  } else {
+    h += `<h1>${L.forzado ? 'Crea tu contraseña' : 'Cambiar contraseña'}</h1><p class="mut">${L.forzado ? 'Tu contraseña es temporal: elige una nueva para continuar.' : 'Elige una contraseña nueva. Se cerrarán tus sesiones en otros equipos.'}</p>
+    ${L.actual ? '' : '<label class="l" for="p0">Contraseña actual</label><input id="p0" class="f" type="password" autocomplete="current-password">'}
+    <label class="l" for="p1">Contraseña nueva</label><input id="p1" class="f" type="password" autocomplete="new-password">
+    <label class="l" for="p2">Repite la contraseña nueva</label><input id="p2" class="f" type="password" autocomplete="new-password">${pwHint}
+    <button class="btn p" data-a="cambiarClave">Guardar contraseña</button>
+    ${L.forzado ? '<button class="lnk" data-a="salir">Salir</button>' : '<button class="lnk" data-a="go" data-v="ajustes">Cancelar</button>'}`;
+  }
+  if (L.step !== 'cambio') h += '<button class="lnk" data-a="go" data-v="setup">Cambiar el enlace del sistema</button>';
+  return h + '</div></div>';
+};
+
+function seccionesHtml(D, d, forCierre) {
+  const plan = D.plan || []; const J = D.jornada || 8;
+  const movidas = plan.filter((p) => d.avance[p.id] && num(d.avance[p.id].q) > 0).length;
+  const conCausa = plan.filter((p) => d.avance[p.id] && d.avance[p.id].causa).length;
+  const per = Object.values(d.personal).reduce((a, b) => a + num(b), 0);
+  const eqs = equiposObra(); const trab = eqs.filter((e) => (d.equipos[e.id] || { est: 'Trabajó' }).est === 'Trabajó').length;
+  const nf = fotosHoy(d);
+  const sub = {
+    avance: d.secciones.indexOf('avance') >= 0 ? (plan.length ? movidas + ' tareas con avance' + (conCausa ? ' · ' + conCausa + ' sin avance con causa' : '') : 'Sin plan comprometido esta semana') : (plan.length ? 'Suma lo que se hizo hoy en el plan semanal' : 'Todavía no hay plan comprometido'),
+    personal: d.secciones.indexOf('personal') >= 0 ? per + ' personas · ' + per * J + ' HH' : (D.parteAyer ? 'Un toque si es igual que el último parte' : 'Cuenta a la gente presente'),
+    equipos: d.secciones.indexOf('equipos') >= 0 ? trab + ' trabajando · ' + (eqs.length - trab) + ' sin trabajar' : (eqs.length ? eqs.length + ' equipos de la obra' : 'No hay equipos asignados a la obra'),
+    novedades: d.secciones.indexOf('novedades') >= 0 ? (d.clima_m || 'Sin clima') + ' · ' + d.eventos.filter((x) => x !== 'Nada especial').length + ' novedades · ' + nf + ' fotos' : 'Clima, problemas y fotos',
+  };
+  return SECCIONES.map((s, i) => {
+    const ok = d.secciones.indexOf(s[0]) >= 0;
+    return `<button class="sec" data-a="go" data-v="${s[0]}">
+      ${forCierre ? '' : (ok ? '<span class="dot ok">' + CHECK + '</span>' : '<span class="dot no">' + (i + 1) + '</span>')}
+      <span class="col" style="flex:1"><span class="b" style="font-size:17px">${s[1]}</span><span class="sm mut">${esc(sub[s[0]])}</span></span>
+      ${forCierre ? '<span class="tag ' + (ok ? 't-ok">Listo' : 't-warn">Falta') + '</span>' : CHEV}</button>`;
+  }).join('');
+}
+
+function solTone(e) { return e === 'Recibida' ? 't-ok' : e === 'Anulada' ? 't-bad' : e === 'Por enviar' ? 't-n' : 't-warn'; }
+
+V.hoy = () => {
+  const D = S.data;
+  if (!D) return `<div class="scr"><div class="body" style="padding-top:40px"><h2>Cargando…</h2><p class="mut">${navigator.onLine ? 'Conectando con el sistema.' : 'Sin señal y todavía no hay datos guardados en este celular. Conéctate una vez para empezar.'}</p>${S.err ? '<p class="note n-bad">' + esc(S.err) + '</p>' : ''}<button class="btn" data-a="reload">Reintentar</button><button class="lnk" data-a="go" data-v="ajustes">Ajustes</button></div></div>`;
+  const P = D.puede; const obraN = (D.obras.find((o) => o.id === S.obra) || {}).nombre || S.obra;
+  const stale = S.dataFecha && S.dataFecha !== hoyLocal();
+  let h = `<div class="scr"><div class="top">
+    <div class="between"><span class="sm b mut">${cap(fLarga(hoyLocal()))}${D.semanaN ? ' · Semana ' + D.semanaN : ''}</span><button class="lnk" data-a="go" data-v="ajustes" aria-label="Ajustes">${GEAR}</button></div>
+    ${D.obras.length > 1 ? `<select id="obraSel" class="f" aria-label="Obra" data-i="obra" style="font-weight:800;font-size:18px">${D.obras.map((o) => '<option value="' + esc(o.id) + '"' + (o.id === S.obra ? ' selected' : '') + '>' + esc(o.nombre) + '</option>').join('')}</select>` : `<h1>${esc(obraN || 'Sin obras activas')}</h1>`}
+    <div class="between"><span class="sm mut">${esc(D.me.nombre || D.me.email)}${D.me.cargo ? ' · ' + esc(D.me.cargo) : ''}</span><span id="status">${statusHtml()}</span></div>
+  </div><div class="body">`;
+  if (stale) h += `<p class="note n-warn">Datos guardados del ${fLarga(S.dataFecha)}. Conéctate para ver el plan y las entregas de hoy.</p>`;
+  if (S.err) h += `<p class="note n-bad">${esc(S.err)}</p>`;
+  const errs = S.pend.filter((x) => x.err);
+  if (errs.length) h += `<button class="note n-bad" style="border:none;text-align:left;cursor:pointer" data-a="go" data-v="ajustes">No se pudo enviar: ${esc(errs[0].label)} — ${esc(errs[0].err)}. Toca para revisar.</button>`;
+  if (!D.obras.length) h += `<p class="note n-warn">No hay obras activas en el catálogo. El Administrador debe registrarlas en la pestaña Obras.</p>`;
+  if (P.parte && S.obra) {
+    const d = draft(); const n = d.secciones.length;
+    const enviado = d.estado === 'Enviado';
+    h += `<div class="hero"><div class="between"><span class="b">Parte de hoy</span><span class="big">${enviado ? 'Enviado' : n + ' de 4'}</span></div>
+      <div class="segs">${SECCIONES.map((s) => '<i class="' + (d.secciones.indexOf(s[0]) >= 0 ? 'on' : '') + '"></i>').join('')}</div>
+      <span class="sm mut">${enviado ? 'Puedes corregirlo durante el día; cada cambio queda registrado.' : n === 4 ? 'Todo listo. Revisa y envía.' : 'Unos 5 minutos. Puedes ir llenando durante el día.'}</span></div>`;
+  }
+  if (P.solicitar && S.obra) h += `<div class="grid2"><button class="btn o" data-a="nuevaSol" data-t="Material">+ Pedir material</button><button class="btn o" data-a="nuevaSol" data-t="Equipo">+ Pedir equipo</button></div>`;
+  if (P.parte && S.obra) h += `<div class="col" style="gap:8px">${seccionesHtml(D, draft())}</div>`;
+  if (P.verProg || P.prog) h += `<button class="sec" data-a="abrirProg"><span class="col" style="flex:1"><span class="b" style="font-size:17px">Programación semanal</span><span class="sm mut">${P.prog ? 'Lookahead, restricciones y plan de la semana' : 'Ver el plan y las restricciones'}${D.ppc ? ' · PPC semana pasada ' + D.ppc.pct + '%' : ''}</span></span>${CHEV}</button>`;
+  if ((D.entregasHoy || []).length) h += `<div class="card"><h3>Llega hoy a la obra</h3>${D.entregasHoy.map((e) => `<div class="col"><span class="b sm">${esc(e.txt)}</span><span class="xs mut">${esc(e.num)} · ${esc(e.prov)}</span></div>`).join('')}<span class="xs mut">La recepción se registra en Almacén, como siempre.</span></div>`;
+  const locales = S.pend.filter((x) => x.kind === 'sol').map((x) => ({ num: 'Por enviar', txt: x.label, req: x.args[0].req, estado: 'Por enviar' }));
+  const sols = locales.concat(D.solicitudes || []);
+  if (P.solicitar || sols.length) h += `<div class="card"><h3>Mis solicitudes</h3>${sols.length ? sols.slice(0, 8).map((s) => `<div class="between" style="align-items:flex-start"><span class="col"><span class="sm b">${esc(s.txt)}</span><span class="xs mut">${esc(s.num)} · uso ${s.req ? fCorta(s.req) : '—'}</span></span><span class="tag ${solTone(s.estado)}">${esc(s.estado)}</span></div>`).join('') : '<span class="sm mut">Todavía no hay solicitudes de esta obra.</span>'}</div>`;
+  if ((D.restricciones || []).length) h += `<div class="card"><h3>Restricciones abiertas</h3>${D.restricciones.slice(0, 6).map((r) => `<div class="col"><span class="sm b">Falta ${esc(r.cond.toLowerCase())} · ${esc(r.tarea)}</span><span class="xs ${r.limite <= addDays(hoyLocal(), 1) ? 'b" style="color:var(--warn)' : 'mut'}">${esc(r.resp)} · hasta el ${fCorta(r.limite)}</span></div>`).join('')}</div>`;
+  if (!P.parte && !P.solicitar && !P.verProg && !P.prog) h += `<div class="card"><h3>Tu cargo usa el sistema anterior</h3><p class="sm mut">Por ahora, Compras, Almacén, Transporte y Seguridad siguen en el sistema anterior. Esta app tendrá sus pantallas en la siguiente etapa.</p><a class="btn w" href="${esc(S.api)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Abrir el sistema anterior</a></div>`;
+  h += `</div>`;
+  if (P.parte && S.obra) h += `<div class="foot"><button class="btn p" data-a="go" data-v="cierre">${draft().estado === 'Enviado' ? 'Ver el parte enviado' : 'Revisar y enviar parte'}</button></div>`;
+  return h + `</div>`;
+};
+
+V.avance = () => {
+  const D = S.data; const d = draft(); const plan = (D.plan || []).slice().sort((a, b) => (a.modo === 'Reserva') - (b.modo === 'Reserva'));
+  let h = `<div class="scr"><div class="top">${back()}<h2>Avance de hoy</h2><span class="sm mut">Tareas del plan semanal. Suma lo que se hizo hoy.</span></div><div class="body">`;
+  if (!plan.length) h += `<p class="note n-warn">Esta semana todavía no tiene plan comprometido. El director de obra o el Ingeniero de Producción lo prepara en Programación semanal. Puedes guardar esta sección igual.</p>`;
+  plan.forEach((p) => {
+    const a = d.avance[p.id] || { q: 0, causa: '' };
+    const total = num(p.antes) + num(a.q); const meta = num(p.meta); const pct = meta > 0 ? Math.min(100, Math.round(total / meta * 100)) : 0;
+    const completa = meta > 0 && total >= meta;
+    h += `<div class="card">
+      <div class="between" style="align-items:flex-start"><span class="col"><span class="b">${esc(p.nombre)}</span><span class="xs mut">${esc([p.lugar, p.cuadrilla].filter(Boolean).join(' · '))}</span></span>
+        ${p.modo === 'Reserva' ? '<span class="tag t-n">Reserva</span>' : completa ? '<span class="tag t-ok">Cumplida</span>' : ''}</div>
+      <div class="bar"><i class="${completa ? 'g' : ''}" style="width:${pct}%"></i></div>
+      <span class="xs mut">${fmt(total)} de ${fmt(meta)} ${esc(p.unidad)} en la semana · ${pct}%</span>
+      <div class="step"><button data-a="avq" data-id="${p.id}" data-d="-1" aria-label="Restar">−</button>
+        <input type="number" inputmode="decimal" min="0" step="any" value="${num(a.q) || ''}" placeholder="0" data-i="avq" data-id="${p.id}" aria-label="Cantidad de hoy en ${esc(p.unidad)}">
+        <button class="plus" data-a="avq" data-id="${p.id}" data-d="1" aria-label="Sumar">+</button></div>
+      <span class="xs mut center">${esc(p.unidad)} hechos hoy</span>
+      ${num(a.q) === 0 ? `<span class="sm b" style="color:var(--warn)">Si hoy no avanzó, ¿por qué?</span><div class="grid2">${D.causas.map((c) => `<button class="chip sm ${a.causa === c[0] ? 'on' : ''}" data-a="causa" data-id="${p.id}" data-c="${c[0]}">${esc(c[1])}</button>`).join('')}</div>` : ''}
+    </div>`;
+  });
+  return h + `</div><div class="foot"><button class="btn p" data-a="save" data-k="avance">Guardar avance</button></div></div>`;
+};
+
+V.personal = () => {
+  const D = S.data; const d = draft(); const J = D.jornada || 8;
+  const cats = D.cat.categorias.slice(); Object.keys(d.personal).forEach((c) => { if (cats.indexOf(c) < 0) cats.push(c); });
+  const tot = Object.values(d.personal).reduce((a, b) => a + num(b), 0);
+  const ayer = D.parteAyer ? D.parteAyer.personal.reduce((a, x) => a + num(x.q), 0) : 0;
+  let h = `<div class="scr"><div class="top">${back()}<h2>Personal en obra</h2><span class="sm mut">Cuenta a la gente presente. Las horas-hombre se calculan solas (${J} h por persona).</span></div><div class="body">`;
+  if (D.parteAyer) h += `<button class="btn o w" data-a="igualAyer">Igual que el ${fCorta(D.parteAyer.fecha)} (${ayer} personas)</button>`;
+  h += `<div class="card" style="padding:4px 16px;gap:0">${cats.map((c) => `<div class="li"><span class="b" style="flex:1">${esc(c)}</span>
+    <div class="step s"><button data-a="per" data-c="${esc(c)}" data-d="-1" aria-label="Restar ${esc(c)}">−</button><input type="number" inputmode="numeric" min="0" value="${num(d.personal[c]) || ''}" placeholder="0" data-i="per" data-c="${esc(c)}" aria-label="${esc(c)}"><button class="plus" data-a="per" data-c="${esc(c)}" data-d="1" aria-label="Sumar ${esc(c)}">+</button></div></div>`).join('')}</div>
+    <div class="hero" style="flex-direction:row;justify-content:space-between"><span class="b">${tot} personas</span><span class="b">${tot * J} HH</span></div>`;
+  return h + `</div><div class="foot"><button class="btn p" data-a="save" data-k="personal">Guardar personal</button></div></div>`;
+};
+
+V.equipos = () => {
+  const D = S.data; const d = draft(); const J = D.jornada || 8; const eqs = equiposObra();
+  let h = `<div class="scr"><div class="top">${back()}<h2>Equipos y maquinaria</h2><span class="sm mut">Los equipos de esta obra. Marca cómo estuvo cada uno.</span></div><div class="body">`;
+  if (D.puede.solicitar) h += `<button class="btn o w" data-a="nuevaSol" data-t="Equipo">+ Solicitar equipo o maquinaria</button>`;
+  if (!eqs.length) h += `<p class="note n-n">No hay equipos asignados a esta obra. El Administrador los registra en la pestaña Equipos.</p>`;
+  eqs.forEach((e) => {
+    const x = d.equipos[e.id] || { est: 'Trabajó', ht: J };
+    h += `<div class="card"><span class="col"><span class="b">${esc(e.nombre)}</span><span class="xs mut">${esc(e.tipo || '')}</span></span>
+      <div class="seg">${['Trabajó', 'Parado', 'Averiado'].map((s) => `<button class="${x.est === s ? 'on ' + (s === 'Trabajó' ? 'g' : s === 'Averiado' ? 'r' : '') : ''}" data-a="eqEst" data-id="${esc(e.id)}" data-s="${s}">${s}</button>`).join('')}</div>
+      ${x.est === 'Trabajó' ? `<div class="row"><span class="sm mut" style="flex:1">Horas trabajadas</span><div class="step s"><button data-a="eqH" data-id="${esc(e.id)}" data-d="-1" aria-label="Restar una hora">−</button><input type="number" inputmode="decimal" min="0" max="24" value="${num(x.ht)}" data-i="eqH" data-id="${esc(e.id)}" aria-label="Horas"><button class="plus" data-a="eqH" data-id="${esc(e.id)}" data-d="1" aria-label="Sumar una hora">+</button></div></div>` : ''}
+      ${x.est === 'Averiado' ? '<span class="note n-bad">Avisa a Transporte y agrega una foto en Novedades.</span>' : ''}
+    </div>`;
+  });
+  return h + `</div><div class="foot"><button class="btn p" data-a="save" data-k="equipos">Guardar equipos</button></div></div>`;
+};
+
+V.novedades = () => {
+  const D = S.data; const d = draft(); const nf = fotosHoy(d);
+  const chips = (arr, sel, act) => `<div class="chips">${arr.map((c) => `<button class="chip ${(Array.isArray(sel) ? sel.indexOf(c) >= 0 : sel === c) ? 'on' : ''}" data-a="${act}" data-c="${esc(c)}">${esc(c)}</button>`).join('')}</div>`;
+  let h = `<div class="scr"><div class="top">${back()}<h2>Clima, novedades y fotos</h2><span class="sm mut">Toca lo que pasó. Escribe solo si hace falta.</span></div><div class="body" style="gap:16px">
+    <div class="col" style="gap:8px"><span class="l">Clima en la mañana</span>${chips(CLIMAS, d.clima_m, 'climaM')}</div>
+    <div class="col" style="gap:8px"><span class="l">Clima en la tarde</span>${chips(CLIMAS, d.clima_t, 'climaT')}</div>
+    <div class="col" style="gap:8px"><span class="l">¿Pasó algo hoy?</span>${chips(EVENTOS, d.eventos, 'evento')}</div>`;
+  if (d.eventos.indexOf('Paralización') >= 0) h += `<div class="card"><div class="row"><span class="sm b" style="flex:1">Horas paralizadas</span><div class="step s"><button data-a="parH" data-d="-1" aria-label="Restar">−</button><input type="number" inputmode="decimal" min="0" value="${num(d.par_h) || ''}" placeholder="0" data-i="parH" aria-label="Horas paralizadas"><button class="plus" data-a="parH" data-d="1" aria-label="Sumar">+</button></div></div>
+    <label class="l" for="parm">Motivo</label><input id="parm" class="f" data-i="parM" value="${esc(d.par_m)}" placeholder="Lluvia, falta de frente, orden del supervisor…">
+    <span class="xs mut">Anótalo también hoy en el libro de órdenes: solo eso vale ante una multa.</span></div>`;
+  h += `<div class="col" style="gap:8px"><label class="l" for="asi">Asiento del libro de órdenes (opcional)</label><input id="asi" class="f" data-i="asiento" value="${esc(d.asiento)}" placeholder="N° de asiento o resumen"></div>
+    <div class="col" style="gap:8px"><label class="l" for="nov">Detalle (opcional)</label><textarea id="nov" class="f" rows="3" data-i="nov" placeholder="Escribe o dicta con el micrófono del teclado">${esc(d.nov)}</textarea></div>
+    <button class="btn w" data-a="foto" style="min-height:64px;border-style:dashed;display:flex;align-items:center;justify-content:center;gap:10px">${CAM} Tomar foto · ${nf} hoy</button>
+    <div class="thumbs" id="thumbs"></div>
+    <span class="xs mut">Las fotos se guardan con fecha y ubicación en la carpeta de la obra. Sin señal, esperan en el celular.</span>
+  </div><div class="foot"><button class="btn p" data-a="save" data-k="novedades">Guardar novedades</button></div></div>`;
+  return h;
+};
+
+V.cierre = () => {
+  const D = S.data; const d = draft(); const falt = 4 - d.secciones.length; const enviado = d.estado === 'Enviado';
+  return `<div class="scr"><div class="top">${back()}<h2>${enviado ? 'Parte enviado' : 'Revisa y envía'}</h2><span class="sm mut">Parte diario del ${fLarga(d.fecha)}</span></div><div class="body">
+    <div class="col" style="gap:8px">${seccionesHtml(D, d, true)}</div>
+    ${falt > 0 ? `<p class="note n-warn">Faltan ${falt} ${falt === 1 ? 'sección' : 'secciones'}. Toca una para completarla.</p>` : ''}
+    ${enviado ? '<p class="note n-ok">Ya está enviado. Si corriges algo, vuelve a guardar la sección: el cambio queda en la bitácora.</p>' : ''}
+  </div><div class="foot"><button class="btn p" data-a="enviar" ${falt > 0 || enviado ? 'disabled' : ''}>${enviado ? 'Enviado' : falt > 0 ? 'Completa las secciones para enviar' : 'Enviar parte diario'}</button></div></div>`;
+};
+
+V.enviado = () => `<div class="scr"><div class="body" style="padding-top:48px;gap:18px">
+  <div class="ok-circle">${CHECK.replace('18', '36').replace('18', '36')}</div>
+  <h2 style="font-size:28px">Parte ${navigator.onLine ? 'enviado' : 'listo'}</h2>
+  <p class="mut">${navigator.onLine ? fLarga(hoyLocal()) + '. Se registró en el sistema.' : 'Quedó guardado en el celular y se enviará solo cuando vuelva la señal.'}</p>
+  <div class="hero" style="flex-direction:row;align-items:center;gap:14px"><span style="font-size:34px;font-weight:800">${S.enviadoRacha}</span><span class="sm">${S.enviadoRacha === 1 ? 'día' : 'días seguidos'} con el parte enviado. Tu obra suma en el panel de la oficina.</span></div>
+  <div class="card"><h3>Se actualiza solo, sin escribir nada más</h3><span class="sm">Avance de la semana y PPC</span><span class="sm">Horas-hombre y horas de cada equipo</span><span class="sm">Causas de lo que no avanzó, para la reunión semanal</span></div>
+</div><div class="foot"><button class="btn w" data-a="go" data-v="hoy">Volver a Hoy</button></div></div>`;
+
+/* ---- solicitud ---- */
+function nuevaSol(tipo) { S.sol = { tipo: tipo, id: '', desc: '', und: '', q: 0, tarea: '', req: '', obs: '', q2: '', otro: false }; S.view = 'sol'; render(); }
+function catSol() {
+  const D = S.data; const s = S.sol;
+  const list = s.tipo === 'Material' ? D.cat.productos.map((p) => ({ id: p.id, n: p.nombre, u: p.unidad })) : D.cat.equipos.map((e) => ({ id: e.id, n: e.nombre, u: 'días' }));
+  const q = s.q2.trim().toLowerCase();
+  return list.filter((x) => !q || x.n.toLowerCase().indexOf(q) >= 0 || String(x.id).toLowerCase() === q);
+}
+function catHtml() {
+  const s = S.sol; const all = catSol(); const lim = all.slice(0, 14);
+  return lim.map((x) => `<button class="chip ${s.id === x.id && !s.otro ? 'on' : ''}" data-a="solItem" data-id="${esc(x.id)}">${esc(x.n)}</button>`).join('') +
+    `<button class="chip ${s.otro ? 'on' : ''}" data-a="solOtro">Otro…</button>` + (all.length > lim.length ? `<span class="xs mut" style="align-self:center">y ${all.length - lim.length} más: escribe para buscar</span>` : '');
+}
+V.sol = () => {
+  const D = S.data; const s = S.sol; const hoy = hoyLocal();
+  const fechas = [1, 2, 3, 4, 5, 6, 7].map((i) => addDays(hoy, i)).filter((f) => dOf(f).getDay() !== 0).slice(0, 6);
+  const tareas = (D.plan || []).map((p) => p.nombre).filter((v, i, a) => a.indexOf(v) === i).concat(['No está en el plan']);
+  const urg = s.req && s.req <= addDays(hoy, 1);
+  const listo = s.desc && num(s.q) > 0 && s.req;
+  return `<div class="scr"><div class="top">${back('Cancelar')}<h2>Nueva solicitud a obra</h2><span class="sm mut">${esc((D.obras.find((o) => o.id === S.obra) || {}).nombre || '')}</span></div><div class="body" style="gap:18px">
+    <div class="col" style="gap:8px"><span class="l">1. ¿Qué necesitas?</span>
+      <div class="grid2"><button class="btn ${s.tipo === 'Material' ? 'd' : ''}" data-a="solTipo" data-t="Material">Material</button><button class="btn ${s.tipo === 'Equipo' ? 'd' : ''}" data-a="solTipo" data-t="Equipo">Equipo o maquinaria</button></div>
+      <input class="f" type="search" placeholder="Buscar en el catálogo" value="${esc(s.q2)}" data-i="solBuscar" aria-label="Buscar en el catálogo">
+      <div class="chips" id="catList">${catHtml()}</div>
+      <div id="otroBox" class="${s.otro ? '' : 'hide'} grid2"><input class="f" placeholder="Descripción" value="${esc(s.otro ? s.desc : '')}" data-i="solDesc" aria-label="Descripción"><input class="f" placeholder="Unidad" value="${esc(s.otro ? s.und : '')}" data-i="solUnd" aria-label="Unidad"></div>
+    </div>
+    <div class="col" style="gap:8px"><span class="l">2. ¿Cuánto?</span>
+      <div class="card" style="padding:10px 12px"><div class="step"><button data-a="solQ" data-d="-1" aria-label="Restar">−</button><input type="number" inputmode="decimal" min="0" value="${num(s.q) || ''}" placeholder="0" data-i="solQ" aria-label="Cantidad"><button class="plus" data-a="solQ" data-d="1" aria-label="Sumar">+</button></div><span class="xs mut center">${esc(s.und || 'unidad')}</span></div>
+    </div>
+    <div class="col" style="gap:8px"><span class="l">3. ¿Para qué tarea?</span><div class="chips">${tareas.map((t) => `<button class="chip sm ${s.tarea === t ? 'on' : ''}" data-a="solTarea" data-c="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>
+    <div class="col" style="gap:8px"><span class="l">4. ¿Cuándo se usa en obra?</span>
+      <div class="grid3">${fechas.map((f, i) => `<button class="chip ${s.req === f ? 'on' : ''}" data-a="solReq" data-f="${f}">${i === 0 && f === addDays(hoy, 1) ? 'Mañana' : cap(fCorta(f))}</button>`).join('')}</div>
+      <label class="xs mut" for="reqOtra">Otra fecha</label><input id="reqOtra" class="f" type="date" min="${addDays(hoy, 0)}" value="${esc(s.req && fechas.indexOf(s.req) < 0 ? s.req : '')}" data-i="solReq">
+      ${urg ? '<p class="note n-warn">Es urgente: se atiende, pero queda registrada como pedido fuera del lookahead. Lo ideal es pedir con 1 a 4 semanas de anticipación.</p>' : ''}
+      ${s.tarea === 'No está en el plan' ? '<p class="note n-n">Como no está en el plan, también lo verá el director de obra.</p>' : ''}
+    </div>
+    <div class="col" style="gap:8px"><label class="l" for="sobs">5. Detalle (opcional)</label><textarea id="sobs" class="f" rows="2" data-i="solObs" placeholder="Especificación, marca, lugar de descarga… o dicta">${esc(s.obs)}</textarea></div>
+  </div><div class="foot"><button class="btn p" data-a="enviarSol" ${listo ? '' : 'disabled'}>${listo ? 'Enviar solicitud' : !s.desc ? 'Elige qué necesitas' : !(num(s.q) > 0) ? 'Indica la cantidad' : 'Elige cuándo se usa'}</button></div></div>`;
+};
+V.solok = () => {
+  const s = S.solOk; const mat = s.tipo === 'Material';
+  const pasos = mat ? ['Almacén revisa el stock: si hay, lo reserva para esa fecha.', 'Si no hay, Adquisiciones lo compra con la fecha de uso (acuerdo marco o cotizaciones).', 'Llega a obra para la fecha de uso y lo recibes con tu firma.']
+    : ['Transporte revisa los equipos propios: si hay uno libre, lo asigna para esa fecha.', 'Si no hay, Adquisiciones gestiona el alquiler por el tiempo que pediste.', 'Llega a obra en la fecha de uso; sus horas se marcan cada día en Equipos y maquinaria.'];
+  return `<div class="scr"><div class="body" style="padding-top:48px;gap:18px"><div class="ok-circle">${CHECK.replace('18', '36').replace('18', '36')}</div>
+    <h2 style="font-size:26px">${navigator.onLine ? 'Solicitud enviada' : 'Solicitud guardada'}</h2>
+    <span class="b">${esc(s.desc)} · ${fmt(s.q)} ${esc(s.und)}</span><span class="sm mut">Para el ${fLarga(s.req)}${s.tarea ? ' · ' + esc(s.tarea) : ''}</span>
+    ${navigator.onLine ? '' : '<p class="note n-warn">Sin señal: se enviará sola cuando vuelva la conexión.</p>'}
+    <div class="card"><h3>Qué pasa ahora</h3>${pasos.map((p, i) => `<div class="row" style="align-items:flex-start"><span class="dot ok" style="width:28px;height:28px;font-size:13px">${i + 1}</span><span class="sm">${p}</span></div>`).join('')}</div>
+    <span class="sm mut">Verás el estado en "Mis solicitudes", en tu pantalla Hoy.</span>
+  </div><div class="foot"><button class="btn p" data-a="go" data-v="hoy">Volver a Hoy</button><button class="btn w" data-a="nuevaSol" data-t="${s.tipo}">Hacer otra solicitud</button></div></div>`;
+};
+
+/* ---- programación semanal ---- */
+async function abrirProg() {
+  if (!navigator.onLine) return toast('La programación necesita señal. Conéctate e intenta de nuevo.', true);
+  try {
+    const p = await withBusy(() => api('programacion', S.obra));
+    S.prog = p;
+    if (!S.progSem || !p.semanas.some((w) => w.lunes === S.progSem)) {
+      const comp0 = p.plan.some((x) => x.semana === p.semanas[0].lunes && x.comprometido);
+      S.progSem = comp0 ? p.semanas[1].lunes : p.semanas[0].lunes;
+    }
+    S.view = 'prog'; render();
+  } catch (e) { if (e.auth) return salirSesion(e.message); toast(e.message, true); }
+}
+async function progCall(fn, ...args) {
+  if (!navigator.onLine) return toast('Sin señal: la programación se guarda solo con conexión.', true);
+  try { const p = await withBusy(() => api(fn, ...args)); if (p && p.semanas) S.prog = p; render(); return true; }
+  catch (e) { if (e.auth) return salirSesion(e.message); toast(e.message, true); return false; }
+}
+V.prog = () => {
+  const P = S.prog; const can = P.puede; const sem = P.semanas.find((w) => w.lunes === S.progSem) || P.semanas[0];
+  const rows = P.plan.filter((p) => p.semana === sem.lunes);
+  const comp = rows.filter((p) => p.modo === 'Comprometida'); const res = rows.filter((p) => p.modo === 'Reserva');
+  const yaComp = rows.some((p) => p.comprometido);
+  const obraN = (S.data.obras.find((o) => o.id === S.obra) || {}).nombre || S.obra;
+  let h = `<div class="scr"><div class="top">${back()}<div class="between"><h2>Programación</h2>${P.ppc ? `<span class="tag ${P.ppc.pct >= 70 ? 't-ok' : 't-warn'}">PPC sem. pasada ${P.ppc.pct}%</span>` : ''}</div><span class="sm mut">${esc(obraN)}${can ? '' : ' · solo lectura'}</span>
+    <div class="weeks" role="tablist">${P.semanas.map((w, i) => { const n = P.plan.filter((p) => p.semana === w.lunes); const rr = n.filter((p) => !p.libre).length; return `<button role="tab" aria-selected="${w.lunes === sem.lunes}" class="${w.lunes === sem.lunes ? 'on' : ''} ${rr ? 'r' : ''}" data-a="progSem" data-l="${w.lunes}" aria-label="Semana ${w.n}${rr ? ', ' + rr + ' con restricciones' : ''}"><b>${i === 0 ? 'Esta' : 'Sem ' + w.n}</b><span>${fMes(w.lunes)}</span><span>${n.length ? n.length + (n.length === 1 ? ' tarea' : ' tareas') : '—'}</span></button>`; }).join('')}</div>
+  </div><div class="body">
+    <div class="between"><span class="sm b">Semana ${sem.n} · ${fMes(sem.lunes)} al ${fMes(sem.sab)}</span>${yaComp ? '<span class="tag t-ok">Comprometida</span>' : ''}</div>
+    <p class="xs mut">Las tareas entran con las 7 condiciones listas: toca la que falte. Lo que falta se vuelve restricción con responsable y fecha. Solo una tarea liberada entra al plan.</p>`;
+  if (!rows.length) h += `<p class="note n-n">Esta semana no tiene tareas. ${can ? 'Agrégalas desde el plan maestro.' : ''}</p>`;
+  rows.forEach((p) => {
+    const tag = !p.libre ? `<span class="tag t-warn">${p.restr.length || 1} restr.</span>` : p.modo === 'Comprometida' ? '<span class="tag t-ok">Comprometida</span>' : p.modo === 'Reserva' ? '<span class="tag t-n">Reserva</span>' : p.modo === 'No entra' ? '<span class="tag t-n">No entra</span>' : '<span class="tag t-ok">Liberada</span>';
+    h += `<div class="card">
+      <div class="between" style="align-items:flex-start"><span class="col"><span class="b">${esc(p.nombre)}</span><span class="xs mut">${esc([p.lugar, p.cuadrilla].filter(Boolean).join(' · '))}</span></span>${tag}</div>
+      <div class="conds">${P.cond.map((c) => { const ok = p.cond[c[0]] !== false; return `<button class="chip sm ${ok ? 'c-ok' : 'c-no'}" ${can ? '' : 'disabled'} data-a="cond" data-id="${p.id}" data-k="${c[0]}" data-v="${ok ? 0 : 1}" aria-pressed="${ok}" title="${esc(c[1])}: ${ok ? 'lista' : 'falta'}">${esc(COND_CORTO[c[0]] || c[1])}</button>`; }).join('')}</div>
+      ${p.restr.map((r) => `<div class="note n-warn between"><span>Falta ${esc(r.cond.toLowerCase())} → ${esc(r.resp)}</span><span>hasta ${fCorta(r.limite)}</span></div>`).join('')}
+      <div class="row"><label class="sm mut" style="flex:1" for="m_${p.id}">Meta de la semana</label><input id="m_${p.id}" class="f" style="max-width:110px;text-align:right;font-weight:800" type="number" inputmode="decimal" min="0" value="${num(p.meta) || ''}" placeholder="0" ${can ? '' : 'disabled'} data-i="meta" data-id="${p.id}"><span class="sm b" style="min-width:44px">${esc(p.unidad)}</span></div>
+      <div class="seg">${[['Comprometida', 'Comprometer'], ['Reserva', 'Reserva'], ['No entra', 'No entra']].map((m) => `<button class="${p.modo === m[0] ? 'on' + (m[0] === 'Comprometida' ? ' g' : '') : ''}" ${can && p.libre ? '' : 'disabled'} data-a="modo" data-id="${p.id}" data-m="${m[0]}">${m[1]}</button>`).join('')}</div>
+      ${p.comprometido && (p.hecho || p.causa) ? `<span class="xs mut">Avance registrado: ${fmt(p.hecho)} ${esc(p.unidad)}${p.causa ? ' · última causa: ' + esc(p.causa) : ''}</span>` : ''}
+    </div>`;
+  });
+  if (can) h += `<button class="btn w" data-a="go" data-v="progAdd" style="border-style:dashed">+ Agregar tarea del plan maestro</button>`;
+  h += `</div>`;
+  if (can) h += `<div class="foot"><span class="xs mut center">${comp.length} comprometidas · ${res.length} de reserva · ${rows.filter((p) => !p.libre).length} con restricciones</span><button class="btn p" data-a="comprometer" ${comp.length ? '' : 'disabled'}>${yaComp ? 'Actualizar el plan comprometido' : 'Comprometer semana ' + sem.n}</button></div>`;
+  return h + `</div>`;
+};
+V.progAdd = () => {
+  const P = S.prog; const sem = P.semanas.find((w) => w.lunes === S.progSem); const en = P.plan.filter((p) => p.semana === sem.lunes).map((p) => p.tarea);
+  const q = S.progQ.trim().toLowerCase();
+  const list = P.tareas.filter((t) => en.indexOf(t.id) < 0 && (!q || (t.nombre + ' ' + t.lugar + ' ' + t.item).toLowerCase().indexOf(q) >= 0));
+  const n = S.nueva || (S.nueva = { nombre: '', lugar: '', unidad: '', cantidad: '', cuadrilla: '', item: '', meta: '' });
+  return `<div class="scr"><div class="top">${back('Programación', 'prog')}<h2>Agregar a la semana ${sem.n}</h2><span class="sm mut">Del ${fMes(sem.lunes)} al ${fMes(sem.sab)}</span></div><div class="body">
+    <input class="f" type="search" placeholder="Buscar tarea del plan maestro" value="${esc(S.progQ)}" data-i="progQ" aria-label="Buscar tarea">
+    <div class="card" style="padding:4px 16px;gap:0" id="tarList">${tarList(list)}</div>
+    <div class="card"><h3>Nueva tarea del plan maestro</h3>
+      <label class="l" for="tn">Tarea</label><input id="tn" class="f" data-i="nv" data-k="nombre" value="${esc(n.nombre)}" placeholder="Ej. Vaciado de losa">
+      <label class="l" for="tl">Lugar o frente</label><input id="tl" class="f" data-i="nv" data-k="lugar" value="${esc(n.lugar)}" placeholder="Ej. Nivel 2 · ejes A–C">
+      <span class="l">Unidad</span><div class="chips">${UNIDADES.map((u) => `<button class="chip sm ${n.unidad === u ? 'on' : ''}" data-a="nvU" data-u="${u}">${u}</button>`).join('')}</div>
+      <div class="grid2"><div class="col"><label class="xs mut" for="tc">Cantidad total</label><input id="tc" class="f" type="number" inputmode="decimal" data-i="nv" data-k="cantidad" value="${esc(n.cantidad)}"></div>
+      <div class="col"><label class="xs mut" for="tm">Meta de esta semana</label><input id="tm" class="f" type="number" inputmode="decimal" data-i="nv" data-k="meta" value="${esc(n.meta)}"></div></div>
+      <div class="grid2"><div class="col"><label class="xs mut" for="tq">Cuadrilla</label><input id="tq" class="f" data-i="nv" data-k="cuadrilla" value="${esc(n.cuadrilla)}"></div>
+      <div class="col"><label class="xs mut" for="ti">Ítem del presupuesto</label><input id="ti" class="f" data-i="nv" data-k="item" value="${esc(n.item)}"></div></div>
+      <button class="btn d" data-a="crearTarea">Crear y agregar a la semana</button>
+    </div>
+  </div></div>`;
+};
+function tarList(list) {
+  if (!list.length) return '<p class="sm mut" style="padding:12px 0">No hay tareas para agregar. Crea una abajo.</p>';
+  return list.map((t) => `<div class="li"><span class="col" style="flex:1"><span class="b sm">${esc(t.nombre)}</span><span class="xs mut">${esc([t.item, t.lugar, fmt(t.cantidad) + ' ' + t.unidad].filter(Boolean).join(' · '))}</span></span>
+    <input class="f" style="max-width:84px;text-align:right" type="number" inputmode="decimal" placeholder="meta" id="mt_${t.id}" aria-label="Meta de la semana para ${esc(t.nombre)}">
+    <button class="btn sm d" data-a="addTarea" data-id="${t.id}">Agregar</button></div>`).join('');
+}
+
+/* ---- ajustes ---- */
+V.ajustes = () => {
+  const D = S.data;
+  return `<div class="scr"><div class="top">${back()}<h2>Ajustes</h2></div><div class="body">
+    ${D ? `<div class="card"><span class="b">${esc(D.me.nombre || '')}</span><span class="sm mut">${esc(D.me.email)}${D.me.cargo ? ' · ' + esc(D.me.cargo) : ''}</span></div>` : ''}
+    <div class="card"><div class="between"><h3>Envíos pendientes</h3><span>${statusHtml()}</span></div>
+      ${S.pend.length ? S.pend.map((x) => `<div class="col"><span class="sm b">${esc(x.label)}</span>${x.err ? `<span class="xs" style="color:var(--bad)">${esc(x.err)}</span><div class="row"><button class="btn sm" data-a="reintentar" data-k="${esc(x.k)}">Reintentar</button><button class="btn sm bad" data-a="descartar" data-k="${esc(x.k)}">Descartar</button></div>` : '<span class="xs mut">Esperando señal</span>'}</div>`).join('') : '<span class="sm mut">Nada pendiente. Todo lo registrado ya está en el sistema.</span>'}
+      <button class="btn" data-a="syncNow" ${navigator.onLine ? '' : 'disabled'}>Enviar ahora</button></div>
+    ${S.installEvt ? '<button class="btn o w" data-a="instalar">Instalar en este celular</button>' : '<div class="card"><h3>Instalar en el celular</h3><p class="sm mut">Android: menú ⋮ de Chrome → Instalar app. iPhone: botón Compartir de Safari → Agregar a inicio.</p></div>'}
+    <a class="btn w" href="${esc(S.api)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Abrir el sistema anterior (compras, almacén…)</a>
+    <button class="btn w" data-a="cambioVol">Cambiar mi contraseña</button>
+    <button class="btn w" data-a="reload">Actualizar datos</button>
+    <button class="btn w" data-a="go" data-v="setup">Cambiar el enlace del sistema</button>
+    <button class="btn w bad" data-a="salir">Cerrar sesión</button>
+    <p class="xs mut center">App de obra · versión ${VERSION}</p>
+  </div></div>`;
+};
+
+/* ---------- dibujo ---------- */
+function render() {
+  if (!S.api) S.view = 'setup';
+  else if (!S.token && S.view !== 'setup') { S.view = 'login'; if (S.login.step === 'cambio') S.login.step = 'login'; }
+  const v = V[S.view] ? S.view : 'hoy';
+  if (['avance', 'personal', 'equipos', 'novedades', 'cierre'].indexOf(v) >= 0 && (!S.data || !S.data.puede.parte)) S.view = 'hoy';
+  if ((v === 'prog' || v === 'progAdd') && !S.prog) S.view = 'hoy';
+  if (v === 'sol' && !S.sol) S.view = 'hoy';
+  const app = $('#app');
+  app.className = S.view === 'prog' || S.view === 'progAdd' ? 'wide' : '';
+  const keepScroll = S.view === S.prev;
+  const y = window.scrollY;
+  app.innerHTML = V[S.view]();
+  if (keepScroll) window.scrollTo(0, y); else window.scrollTo(0, 0);
+  S.prev = S.view;
+}
+
+/* ---------- acciones ---------- */
+function upd(fn) { const d = draft(); fn(d); saveDraft(d); render(); }
+const A = {
+  go: (el) => { S.view = el.dataset.v; render(); },
+  reload: () => cargar(),
+  setApi: async () => {
+    const u = $('#apiurl').value.trim();
+    if (!/^https:\/\/script\.google\.com\/macros\/s\/[\w-]+\/exec$/.test(u) && !/^https?:\/\/(localhost|127\.0\.0\.1)(:\d+)?\//.test(u)) return toast('El enlace debe ser de la forma https://script.google.com/macros/s/…/exec', true);
+    S.api = u;
+    try { await withBusy(() => api('ping')); } catch (e) { S.api = LS.get('api', ''); return toast(e.net ? 'No se pudo conectar. Revisa la señal y el enlace.' : e.message, true); }
+    LS.set('api', u); S.view = S.token ? 'hoy' : 'login'; render(); if (S.token) cargar();
+  },
+  ingresar: async () => {
+    const e = $('#em').value.trim().toLowerCase(); const pw = $('#pw').value; S.login.email = e; LS.set('email', e);
+    if (!e || !pw) return toast('Escribe tu correo y tu contraseña.', true);
+    try {
+      const r = await withBusy(() => api('ingresar', e, pw));
+      S.token = r.token; LS.set('token', r.token);
+      const t = $('#toast'); if (t) t.style.display = 'none';
+      if (r.cambiar) return irCambio(true, pw);
+      S.view = 'hoy'; S.data = null; render(); await cargar(); sync();
+    } catch (x) {
+      if (x.sinClave) { S.login.step = 'rec1'; render(); return toast(x.message); }
+      toast(x.net ? 'Sin conexión: para ingresar se necesita señal.' : x.message, true);
+    }
+  },
+  recInicio: () => { const em = $('#em'); if (em) S.login.email = em.value.trim().toLowerCase(); S.login.step = 'rec1'; render(); },
+  pedir: async () => {
+    const e = $('#em').value.trim().toLowerCase(); S.login.email = e; LS.set('email', e);
+    try { await withBusy(() => api('pedirCodigo', e)); S.login.step = 'rec2'; render(); setTimeout(() => { const c = $('#cod'); if (c) c.focus(); }, 50); }
+    catch (x) { toast(x.message, true); }
+  },
+  crearClave: async () => {
+    const c = $('#cod').value.trim(), p1 = $('#p1').value, p2 = $('#p2').value;
+    if (p1 !== p2) return toast('Las dos contraseñas no coinciden.', true);
+    try {
+      const r = await withBusy(() => api('crearClave', S.login.email, c, p1));
+      S.token = r.token; LS.set('token', r.token); S.login.step = 'login'; S.view = 'hoy'; S.data = null; render(); await cargar(); sync();
+      toast('Contraseña creada.');
+    } catch (x) { toast(x.message, true); }
+  },
+  cambiarClave: async () => {
+    const actual = S.login.actual || ($('#p0') ? $('#p0').value : ''), p1 = $('#p1').value, p2 = $('#p2').value;
+    if (p1 !== p2) return toast('Las dos contraseñas no coinciden.', true);
+    try {
+      await withBusy(() => api('cambiarClave', actual, p1));
+      S.login = { step: 'login', email: S.login.email, actual: '', forzado: false }; S.view = 'hoy'; render(); await cargar(); sync();
+      toast('Contraseña guardada.');
+    } catch (x) { if (x.auth) return salirSesion(x.message); toast(x.message, true); }
+  },
+  loginBack: () => { S.login.step = 'login'; render(); },
+  cambioVol: () => { if (!navigator.onLine) return toast('Para cambiar la contraseña se necesita señal.', true); irCambio(false, ''); },
+  salir: async () => {
+    if (S.pend.length && !confirm('Hay ' + S.pend.length + ' registros sin enviar. Si cierras la sesión se enviarán cuando vuelvas a ingresar. ¿Cerrar sesión?')) return;
+    try { if (navigator.onLine) await api('cerrarSesion'); } catch (e) { }
+    salirSesion();
+  },
+  save: (el) => guardarSeccion(el.dataset.k),
+  avq: (el) => upd((d) => { const p = S.data.plan.find((x) => x.id === el.dataset.id); const a = d.avance[p.id] || (d.avance[p.id] = { q: 0, causa: '' }); a.q = Math.max(0, Math.round((num(a.q) + Number(el.dataset.d) * stepFor(p)) * 1000) / 1000); if (a.q > 0) a.causa = ''; }),
+  causa: (el) => upd((d) => { const a = d.avance[el.dataset.id] || (d.avance[el.dataset.id] = { q: 0, causa: '' }); a.causa = a.causa === el.dataset.c ? '' : el.dataset.c; }),
+  igualAyer: () => upd((d) => { d.personal = {}; S.data.parteAyer.personal.forEach((x) => { d.personal[x.cat] = num(x.q); }); }),
+  per: (el) => upd((d) => { const c = el.dataset.c; d.personal[c] = Math.max(0, num(d.personal[c]) + Number(el.dataset.d)); }),
+  eqEst: (el) => upd((d) => { const J = S.data.jornada || 8; const x = d.equipos[el.dataset.id] || { est: 'Trabajó', ht: J }; x.est = el.dataset.s; if (x.est === 'Trabajó' && !num(x.ht)) x.ht = J; d.equipos[el.dataset.id] = x; }),
+  eqH: (el) => upd((d) => { const J = S.data.jornada || 8; const x = d.equipos[el.dataset.id] || { est: 'Trabajó', ht: J }; x.ht = Math.min(24, Math.max(0, num(x.ht) + Number(el.dataset.d))); d.equipos[el.dataset.id] = x; }),
+  climaM: (el) => upd((d) => { d.clima_m = d.clima_m === el.dataset.c ? '' : el.dataset.c; }),
+  climaT: (el) => upd((d) => { d.clima_t = d.clima_t === el.dataset.c ? '' : el.dataset.c; }),
+  evento: (el) => upd((d) => {
+    const c = el.dataset.c; const i = d.eventos.indexOf(c);
+    if (i >= 0) d.eventos.splice(i, 1); else { if (c === 'Nada especial') d.eventos = []; else d.eventos = d.eventos.filter((x) => x !== 'Nada especial'); d.eventos.push(c); }
+  }),
+  parH: (el) => upd((d) => { d.par_h = Math.max(0, num(d.par_h) + Number(el.dataset.d)); }),
+  foto: () => { const f = $('#cam'); f.value = ''; f.click(); pedirGeo(); },
+  enviar: async () => {
+    const d = draft(); if (d.secciones.length < 4) return;
+    d.estado = 'Enviado'; saveDraft(d);
+    const D = S.data; S.enviadoRacha = (D.racha || 0) + (D.parteHoy && D.parteHoy.estado === 'Enviado' ? 0 : 1);
+    await enqueue('parte:' + S.obra + ':' + d.fecha, 'guardarParte', [partePayload(d, 'Enviado')], 'Parte del ' + fCorta(d.fecha) + ' (enviado)', 'parte');
+    S.view = 'enviado'; render();
+  },
+  nuevaSol: (el) => nuevaSol(el.dataset.t),
+  solTipo: (el) => { S.sol = Object.assign(S.sol, { tipo: el.dataset.t, id: '', desc: '', und: '', otro: false, q2: '' }); render(); },
+  solItem: (el) => { const x = catSol().find((i) => String(i.id) === el.dataset.id); if (!x) return; const same = S.sol.id === x.id; Object.assign(S.sol, { id: x.id, desc: x.n, und: x.u || 'unidad', otro: false, q: same ? S.sol.q : (num(S.sol.q) || 1) }); render(); },
+  solOtro: () => { Object.assign(S.sol, { id: '', desc: '', und: '', otro: true }); render(); setTimeout(() => { const i = document.querySelector('[data-i="solDesc"]'); if (i) i.focus(); }, 30); },
+  solQ: (el) => { S.sol.q = Math.max(0, num(S.sol.q) + Number(el.dataset.d)); render(); },
+  solTarea: (el) => { S.sol.tarea = S.sol.tarea === el.dataset.c ? '' : el.dataset.c; render(); },
+  solReq: (el) => { S.sol.req = el.dataset.f; render(); },
+  enviarSol: async () => {
+    const s = S.sol; if (!(s.desc && num(s.q) > 0 && s.req)) return;
+    const cid = newId();
+    const args = { cid: cid, obra: S.obra, tipo: s.tipo, cod: s.otro ? '' : s.id, desc: s.desc, und: s.und, q: num(s.q), req: s.req, tarea: s.tarea === 'No está en el plan' ? 'No está en el plan' : s.tarea, obs: s.obs };
+    await enqueue('sol:' + cid, 'crearSolicitud', [args], s.desc + ' · ' + fmt(s.q) + ' ' + s.und, 'sol');
+    S.solOk = Object.assign({}, s); S.sol = null; S.view = 'solok'; render();
+  },
+  abrirProg: () => abrirProg(),
+  progSem: (el) => { S.progSem = el.dataset.l; render(); },
+  cond: (el) => progCall('setCondicion', el.dataset.id, el.dataset.k, el.dataset.v === '1'),
+  modo: (el) => { const p = S.prog.plan.find((x) => x.id === el.dataset.id); const m = el.dataset.m === p.modo ? 'Lookahead' : el.dataset.m; progCall('setModo', p.id, m, p.meta); },
+  addTarea: async (el) => {
+    const id = el.dataset.id; const meta = num(($('#mt_' + id) || {}).value);
+    if (await progCall('agregarAlPlan', { obra: S.obra, semana: S.progSem, tarea: id, meta: meta })) { toast('Agregada a la semana.'); }
+  },
+  nvU: (el) => { S.nueva.unidad = el.dataset.u; render(); },
+  crearTarea: async () => {
+    const n = S.nueva;
+    if (!n.nombre.trim()) return toast('Escribe el nombre de la tarea.', true);
+    if (!n.unidad.trim()) return toast('Elige la unidad.', true);
+    if (!navigator.onLine) return toast('Sin señal: la programación se guarda solo con conexión.', true);
+    try {
+      const r = await withBusy(() => api('guardarTarea', { obra: S.obra, nombre: n.nombre, lugar: n.lugar, unidad: n.unidad, cantidad: num(n.cantidad), cuadrilla: n.cuadrilla, item: n.item }));
+      const ok = await progCall('agregarAlPlan', { obra: S.obra, semana: S.progSem, tarea: r.id, meta: num(n.meta) });
+      if (ok) { S.nueva = null; S.view = 'prog'; render(); toast('Tarea creada y agregada.'); }
+    } catch (e) { toast(e.message, true); }
+  },
+  comprometer: async () => {
+    const sem = S.prog.semanas.find((w) => w.lunes === S.progSem);
+    const n = S.prog.plan.filter((p) => p.semana === sem.lunes && p.modo === 'Comprometida').length;
+    if (!confirm('¿Comprometer ' + n + ' tareas para la semana ' + sem.n + '? El residente las verá en su pantalla Avance. Confírmalo antes con el residente y el maestro.')) return;
+    if (await progCall('comprometer', S.obra, sem.lunes)) { toast('Semana ' + sem.n + ' comprometida. El residente ya la ve.'); cargar(true); }
+  },
+  syncNow: () => { S.pend.forEach((x) => { x.retry = true; }); sync(); },
+  reintentar: async (el) => { const it = S.pend.find((x) => x.k === el.dataset.k); if (it) { it.err = ''; it.tries = 0; await OB.put(it); await contarPend(); render(); sync(); } },
+  descartar: async (el) => { if (!confirm('¿Descartar este registro? No se enviará al sistema.')) return; await OB.del(el.dataset.k); await contarPend(); render(); },
+  instalar: async () => { if (S.installEvt) { S.installEvt.prompt(); S.installEvt = null; render(); } },
+};
+document.addEventListener('click', (e) => {
+  const el = e.target.closest('[data-a]');
+  if (!el || el.disabled) return;
+  const f = A[el.dataset.a];
+  if (f) { e.preventDefault(); f(el, e); }
+});
+document.addEventListener('keydown', (e) => {
+  if (e.key !== 'Enter') return;
+  const id = e.target.id; const st = S.login.step;
+  if (id === 'apiurl') A.setApi();
+  else if (S.view === 'login' && st === 'login' && (id === 'em' || id === 'pw')) A.ingresar();
+  else if (S.view === 'login' && st === 'rec1' && id === 'em') A.pedir();
+  else if (S.view === 'login' && st === 'rec2' && id === 'p2') A.crearClave();
+  else if (S.view === 'login' && st === 'cambio' && id === 'p2') A.cambiarClave();
+});
+// Escritura: los textos se guardan sin redibujar (para no perder el cursor); los números redibujan al confirmar.
+document.addEventListener('input', (e) => {
+  const el = e.target; const k = el.dataset && el.dataset.i; if (!k) return;
+  const v = el.value;
+  if (k === 'nov' || k === 'asiento' || k === 'parM') { const d = draft(); d[k === 'parM' ? 'par_m' : k] = v; saveDraft(d); }
+  else if (k === 'solBuscar') { S.sol.q2 = v; const c = $('#catList'); if (c) c.innerHTML = catHtml(); }
+  else if (k === 'solDesc') { S.sol.desc = v.trim(); refreshSolBtn(); }
+  else if (k === 'solUnd') { S.sol.und = v.trim(); }
+  else if (k === 'solObs') { S.sol.obs = v; }
+  else if (k === 'progQ') { S.progQ = v; const P = S.prog; const sem = P.semanas.find((w) => w.lunes === S.progSem); const en = P.plan.filter((p) => p.semana === sem.lunes).map((p) => p.tarea); const q = v.trim().toLowerCase(); $('#tarList').innerHTML = tarList(P.tareas.filter((t) => en.indexOf(t.id) < 0 && (!q || (t.nombre + ' ' + t.lugar + ' ' + t.item).toLowerCase().indexOf(q) >= 0))); }
+  else if (k === 'nv') { S.nueva[el.dataset.k] = v; }
+});
+function refreshSolBtn() { const b = document.querySelector('[data-a="enviarSol"]'); const s = S.sol; if (!b || !s) return; const listo = s.desc && num(s.q) > 0 && s.req; b.disabled = !listo; b.textContent = listo ? 'Enviar solicitud' : !s.desc ? 'Elige qué necesitas' : !(num(s.q) > 0) ? 'Indica la cantidad' : 'Elige cuándo se usa'; }
+document.addEventListener('change', (e) => {
+  const el = e.target; const k = el.dataset && el.dataset.i; if (!k) return;
+  const v = el.value;
+  if (k === 'obra') { S.obra = v; LS.set('obra', v); const c = LS.get('inicio:' + v, null); S.data = c ? c.d : S.data; cargar(); }
+  else if (k === 'avq') upd((d) => { const a = d.avance[el.dataset.id] || (d.avance[el.dataset.id] = { q: 0, causa: '' }); a.q = Math.max(0, num(v)); if (a.q > 0) a.causa = ''; });
+  else if (k === 'per') upd((d) => { d.personal[el.dataset.c] = Math.max(0, Math.round(num(v))); });
+  else if (k === 'eqH') upd((d) => { const x = d.equipos[el.dataset.id] || { est: 'Trabajó', ht: 0 }; x.ht = Math.min(24, Math.max(0, num(v))); d.equipos[el.dataset.id] = x; });
+  else if (k === 'parH') upd((d) => { d.par_h = Math.max(0, num(v)); });
+  else if (k === 'solQ') { S.sol.q = Math.max(0, num(v)); refreshSolBtn(); }
+  else if (k === 'solReq') { if (v) { S.sol.req = v; render(); } }
+  else if (k === 'meta') { const p = S.prog.plan.find((x) => x.id === el.dataset.id); if (p && num(v) !== num(p.meta)) progCall('setModo', p.id, p.modo, num(v)); }
+});
+
+/* ---------- fotos: se comprimen en el celular y esperan en la cola ---------- */
+function pedirGeo() {
+  if (S.geo || !navigator.geolocation) return;
+  try { navigator.geolocation.getCurrentPosition((p) => { S.geo = { lat: p.coords.latitude, lng: p.coords.longitude }; }, () => { }, { timeout: 8000, maximumAge: 600000 }); } catch (e) { }
+}
+function comprimir(file) {
+  return new Promise((res, rej) => {
+    const url = URL.createObjectURL(file); const img = new Image();
+    img.onload = () => {
+      const max = 1600; let w = img.naturalWidth, h = img.naturalHeight; const k = Math.min(1, max / Math.max(w, h));
+      w = Math.round(w * k); h = Math.round(h * k);
+      const c = document.createElement('canvas'); c.width = w; c.height = h; c.getContext('2d').drawImage(img, 0, 0, w, h);
+      URL.revokeObjectURL(url); res(c.toDataURL('image/jpeg', 0.72));
+    };
+    img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('No se pudo leer la foto.')); };
+    img.src = url;
+  });
+}
+$('#cam').addEventListener('change', async (e) => {
+  const files = Array.from(e.target.files || []); if (!files.length) return;
+  const d = draft();
+  for (const f of files) {
+    try {
+      const data = await comprimir(f); const cid = newId();
+      await OB.put({ k: 'foto:' + cid, fn: 'subirFoto', args: [{ cid: cid, obra: S.obra, fecha: d.fecha, b64: data, nota: '', lat: S.geo ? S.geo.lat : '', lng: S.geo ? S.geo.lng : '' }], label: 'Foto del ' + fCorta(d.fecha), kind: 'foto', ts: Date.now(), tries: 0, err: '' });
+      d.fotos.push(cid);
+      const th = $('#thumbs'); if (th) { const im = document.createElement('img'); im.src = data; im.alt = 'Foto tomada'; th.appendChild(im); }
+    } catch (x) { toast(x.message, true); }
+  }
+  saveDraft(d); await contarPend(); sync();
+  const b = document.querySelector('[data-a="foto"]'); if (b) b.innerHTML = CAM + ' Tomar foto · ' + fotosHoy(d) + ' hoy';
+  toast(files.length === 1 ? 'Foto guardada.' : files.length + ' fotos guardadas.');
+});
+
+/* ---------- arranque ---------- */
+(function limpiar() { const lim = addDays(hoyLocal(), -5); LS.keys().filter((k) => k.indexOf('draft:') === 0 && k.slice(-10) < lim).forEach((k) => LS.del(k)); })();
+if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('sw.js').catch(() => { });
+render();
+contarPend().then(() => { if (S.token && S.api) { cargar(); sync(); } });
+</script>
+</body>
+</html>
