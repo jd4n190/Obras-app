@@ -1,5 +1,5 @@
 // App de obra: guarda la aplicación en el celular para abrirla sin señal.
-const C = 'obra-app-v4.1.0';
+const C = 'obra-app-v4.3.0';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
 self.addEventListener('install', (e) => { e.waitUntil(caches.open(C).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => {
