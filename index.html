@@ -121,7 +121,7 @@ label.l{font-size:15px;font-weight:700}
 <input type="file" id="cam" accept="image/*" capture="environment" multiple class="hide">
 <script>
 'use strict';
-const VERSION = '4.4.1';
+const VERSION = '4.4.2';
 const CHECK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L19 7"/></svg>';
 const CHEV = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A847A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 const BACKI = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
@@ -527,13 +527,15 @@ function avanceSemanaHtml(D) {
 }
 
 V.avance = () => {
-  const D = S.data; const d = draft(); const plan = (D.plan || []).slice().sort((a, b) => (a.modo === 'Reserva') - (b.modo === 'Reserva'));
+  const D = S.data; const d = draft();
+  const yaOk = (p) => num(p.meta) > 0 && num(p.antes) >= num(p.meta);
+  const plan = (D.plan || []).slice().sort((a, b) => (yaOk(a) - yaOk(b)) || ((a.modo === 'Reserva') - (b.modo === 'Reserva')));
   let h = `<div class="scr"><div class="top">${back()}<h2>Avance de hoy</h2><span class="sm mut">Tareas del plan semanal. Suma lo que se hizo hoy.</span></div><div class="body">`;
   if (!plan.length) h += `<p class="note n-warn">Esta semana todavía no tiene plan comprometido. El director de obra o el Ingeniero de Producción lo prepara en Programación semanal. Puedes guardar esta sección igual.</p>`;
   plan.forEach((p) => {
     const a = d.avance[p.id] || { q: 0, causa: '' };
     const total = num(p.antes) + num(a.q); const meta = num(p.meta); const pct = meta > 0 ? Math.min(100, Math.round(total / meta * 100)) : 0;
-    const completa = meta > 0 && total >= meta;
+    const completa = meta > 0 && total >= meta; const antesOk = yaOk(p);
     h += `<div class="card">
       <div class="between" style="align-items:flex-start"><span class="col"><span class="b">${esc(p.nombre)}</span><span class="xs mut">${esc([p.item ? 'Ítem ' + p.item : '', p.lugar, p.cuadrilla].filter(Boolean).join(' · '))}</span></span>
         ${p.modo === 'Reserva' ? '<span class="tag t-n">Reserva</span>' : completa ? '<span class="tag t-ok">Cumplida</span>' : ''}</div>
@@ -543,7 +545,8 @@ V.avance = () => {
         <input type="number" inputmode="decimal" min="0" step="any" value="${num(a.q) || ''}" placeholder="0" data-i="avq" data-id="${p.id}" aria-label="Cantidad de hoy en ${esc(p.unidad)}">
         <button class="plus" data-a="avq" data-id="${p.id}" data-d="1" aria-label="Sumar">+</button></div>
       <span class="xs mut center">${esc(p.unidad)} hechos hoy</span>
-      ${num(a.q) === 0 ? `<span class="sm b" style="color:var(--warn)">Si hoy no avanzó, ¿por qué?</span><div class="grid2">${D.causas.map((c) => `<button class="chip sm ${a.causa === c[0] ? 'on' : ''}" data-a="causa" data-id="${p.id}" data-c="${c[0]}">${esc(c[1])}</button>`).join('')}</div>` : ''}
+      ${antesOk && num(a.q) === 0 ? `<span class="sm" style="color:var(--okfg)">Ya cumplida en días anteriores: no hace falta registrar nada. Anota solo si hoy hubo trabajo adicional.</span>` : ''}
+      ${num(a.q) === 0 && !antesOk ? `<span class="sm b" style="color:var(--warn)">Si hoy no avanzó, ¿por qué?</span><div class="grid2">${D.causas.map((c) => `<button class="chip sm ${a.causa === c[0] ? 'on' : ''}" data-a="causa" data-id="${p.id}" data-c="${c[0]}">${esc(c[1])}</button>`).join('')}</div>` : ''}
     </div>`;
   });
   return h + `</div><div class="foot"><button class="btn p" data-a="save" data-k="avance">Guardar avance</button></div></div>`;
@@ -656,10 +659,11 @@ V.partes = () => {
 V.parteVer = () => {
   const p = (S.hist || []).find((x) => x.id === S.histSel);
   if (!p) return V.partes();
-  const ej = p.avance.filter((a) => a.ejecutado), no = p.avance.filter((a) => !a.ejecutado);
+  const ej = p.avance.filter((a) => a.ejecutado), no = p.avance.filter((a) => !a.ejecutado && !a.yaCumplida), ya = p.avance.filter((a) => a.yaCumplida);
   const nom = (a) => (a.item ? esc(a.item) + ' · ' : '') + esc(a.desc);
   let h = `<div class="scr"><div class="top">${back('Partes anteriores', 'partes')}<h2>${cap(fLarga(p.fecha))}</h2><span class="sm mut">${p.estado === 'Enviado' ? 'Enviado' : 'Borrador'}${p.por ? ' · ' + esc(p.por) : ''}</span></div><div class="body">`;
   h += `<div class="card"><h3>Se ejecutó</h3>${ej.length ? ej.map((a) => `<div class="between" style="align-items:flex-start"><span class="sm">${nom(a)}</span><span class="sm b" style="white-space:nowrap">${fmt(a.q)} ${esc(a.und)}</span></div>`).join('') : '<span class="sm mut">Ninguna tarea avanzó este día.</span>'}</div>`;
+  if (ya.length) h += `<div class="card"><h3>Ya cumplidas antes</h3><span class="sm mut">Llegaron a su meta de la semana en días anteriores: no necesitan avance ni causa.</span>${ya.map((a) => `<span class="sm">${nom(a)}</span>`).join('')}</div>`;
   if (no.length) h += `<div class="card"><h3>No se ejecutó</h3>${no.map((a) => `<div class="col" style="gap:4px"><span class="sm b">${nom(a)}</span><span><span class="tag ${a.causa ? 't-warn' : 't-bad'}">${esc(causaDe(a))}</span></span></div>`).join('')}</div>`;
   h += `<div class="card"><h3>Personal · ${fmt(p.per)} personas · ${fmt(p.hh)} HH</h3>${p.personal.length ? p.personal.map((x) => `<div class="between"><span class="sm">${esc(x.cat)}</span><span class="sm b">${fmt(x.q)}</span></div>`).join('') : '<span class="sm mut">Sin registro.</span>'}</div>`;
   if (p.equipos.length) h += `<div class="card"><h3>Equipos</h3>${p.equipos.map((x) => `<div class="between"><span class="sm">${esc(x.eq)}</span><span class="tag ${x.est === 'Trabajó' || num(x.ht) > 0 ? 't-ok' : x.est === 'Averiado' ? 't-bad' : 't-n'}">${num(x.ht) > 0 ? fmt(x.ht) + ' h' : esc(x.est || x.mot || 'Parado')}</span></div>`).join('')}</div>`;
