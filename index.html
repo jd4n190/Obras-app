@@ -108,6 +108,8 @@ label.l{font-size:15px;font-weight:700}
 .hb{display:grid;grid-template-columns:minmax(0,1fr) 120px 36px;align-items:center;gap:8px;font-size:13px}
 .hb .bar{height:12px;border-radius:6px}
 .ppcbig{font-size:52px;font-weight:800;line-height:1}
+.spin{width:64px;height:64px;border-radius:32px;border:6px solid var(--soft);border-top-color:var(--acc);animation:gira 1s linear infinite}
+@keyframes gira{to{transform:rotate(360deg)}}
 .hide{display:none!important}
 .thumbs{display:flex;gap:6px;flex-wrap:wrap}
 .thumbs img{width:56px;height:56px;object-fit:cover;border-radius:8px;border:1px solid var(--line)}
@@ -119,7 +121,7 @@ label.l{font-size:15px;font-weight:700}
 <input type="file" id="cam" accept="image/*" capture="environment" multiple class="hide">
 <script>
 'use strict';
-const VERSION = '4.3.0';
+const VERSION = '4.4.1';
 const CHECK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L19 7"/></svg>';
 const CHEV = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A847A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 const BACKI = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
@@ -242,7 +244,10 @@ async function enqueue(k, fn, args, label, kind) {
 }
 const PRIO = { sol: 0, parte: 1, foto: 2 };
 async function sync() {
-  if (S.syncing || !S.token || !S.api || !navigator.onLine) return;
+  // Si ya hay un envío en curso, se anota y se repite al terminar (antes esperaba hasta 30 s y,
+  // si la app se cerraba en ese tiempo, el parte quedaba en el celular y el sistema lo mostraba como borrador).
+  if (S.syncing) { S.syncOtra = true; return; }
+  if (!S.token || !S.api || !navigator.onLine) return;
   S.syncing = true; renderStatus();
   let hubo = false;
   try {
@@ -266,8 +271,22 @@ async function sync() {
     S.syncing = false;
     await contarPend();
     if (hubo) { LS.set('lastSync', new Date().toISOString()); await cargar(true); }
+    if (S.syncOtra) { S.syncOtra = false; setTimeout(sync, 0); }
   }
 }
+// Espera a que un registro de la cola llegue al sistema. true = llegó; false = sin señal, con error o tardó demasiado.
+async function esperarEnvio(k, ms) {
+  const fin = Date.now() + (ms || 45000);
+  while (Date.now() < fin) {
+    const it = (await OB.all()).find((x) => x.k === k);
+    if (!it) return true;
+    if (!navigator.onLine || (it.err && it.tries >= 1)) return false;
+    if (!S.syncing) sync();
+    await new Promise((r) => setTimeout(r, 400));
+  }
+  return false;
+}
+function partePendiente(f) { return S.pend.find((x) => x.k === 'parte:' + S.obra + ':' + f) || null; }
 window.addEventListener('online', () => { S.online = true; renderStatus(); sync(); cargar(true); });
 window.addEventListener('offline', () => { S.online = false; renderStatus(); });
 setInterval(() => { if (S.pend.length) sync(); }, 30000);
@@ -447,7 +466,7 @@ function seccionesHtml(D, d, forCierre) {
   }).join('');
 }
 
-function solTone(e) { return e === 'Recibida' ? 't-ok' : e === 'Anulada' ? 't-bad' : e === 'Por enviar' ? 't-n' : 't-warn'; }
+function solTone(e) { return e === 'Recibida' || e === 'Despachada' || e === 'Reservada' ? 't-ok' : e === 'Anulada' ? 't-bad' : e === 'Por enviar' ? 't-n' : 't-warn'; }
 
 V.hoy = () => {
   const D = S.data;
@@ -466,10 +485,10 @@ V.hoy = () => {
   if (!D.obras.length) h += `<p class="note n-warn">No hay obras activas en el catálogo. El Administrador debe registrarlas en la pestaña Obras.</p>`;
   if (P.parte && S.obra) {
     const d = draft(); const n = d.secciones.length;
-    const enviado = d.estado === 'Enviado';
-    h += `<div class="hero"><div class="between"><span class="b">Parte de hoy</span><span class="big">${enviado ? 'Enviado' : n + ' de 4'}</span></div>
+    const enviado = d.estado === 'Enviado'; const pend = enviado && partePendiente(d.fecha);
+    h += `<div class="hero"><div class="between"><span class="b">Parte de hoy</span><span class="big">${pend ? 'Por enviar' : enviado ? 'Enviado' : n + ' de 4'}</span></div>
       <div class="segs">${SECCIONES.map((s) => '<i class="' + (d.secciones.indexOf(s[0]) >= 0 ? 'on' : '') + '"></i>').join('')}</div>
-      <span class="sm mut">${enviado ? 'Puedes corregirlo durante el día; cada cambio queda registrado.' : n === 4 ? 'Todo listo. Revisa y envía.' : 'Unos 5 minutos. Puedes ir llenando durante el día.'}</span></div>`;
+      <span class="sm mut">${pend ? (pend.err ? 'No llegó al sistema: ' + esc(pend.err) + '. Toca el aviso de arriba para reintentar.' : 'Está en el celular y todavía no llegó al sistema: la oficina lo ve como borrador. Deja la app abierta con señal hasta que diga "Todo enviado".') : enviado ? 'Puedes corregirlo durante el día; cada cambio queda registrado.' : n === 4 ? 'Todo listo. Revisa y envía.' : 'Unos 5 minutos. Puedes ir llenando durante el día.'}</span></div>`;
   }
   if (P.solicitar && S.obra) h += `<div class="grid2"><button class="btn o" data-a="nuevaSol" data-t="Material">+ Pedir material</button><button class="btn o" data-a="nuevaSol" data-t="Equipo">+ Pedir equipo</button></div>`;
   if (P.parte && S.obra) h += `<div class="col" style="gap:8px">${seccionesHtml(D, draft())}</div>`;
@@ -477,6 +496,7 @@ V.hoy = () => {
   if ((P.verParte || P.parte) && S.obra) h += `<button class="sec" data-a="abrirPartes"><span class="col" style="flex:1"><span class="b" style="font-size:17px">Partes anteriores</span><span class="sm mut">Qué se ejecutó, qué no y por qué, día por día</span></span>${CHEV}</button>`;
   if (P.verProg || P.prog) h += `<button class="sec" data-a="abrirPPC" data-v="hoy"><span class="col" style="flex:1"><span class="b" style="font-size:17px">Cierre de semana y PPC</span><span class="sm mut">Tareas cumplidas, causas y documento F-O05-04</span></span>${CHEV}</button>`;
   if (P.verProg || P.prog) h += `<button class="sec" data-a="abrirProg"><span class="col" style="flex:1"><span class="b" style="font-size:17px">Programación semanal</span><span class="sm mut">${P.prog ? 'Lookahead, restricciones y plan de la semana' : 'Ver el plan y las restricciones'}${D.ppc ? ' · PPC semana pasada ' + D.ppc.pct + '%' : ''}</span></span>${CHEV}</button>`;
+  if ((D.porRecibir || []).length) h += `<div class="card"><h3>Por recibir en obra</h3>${D.porRecibir.map((o) => `<div class="between" style="align-items:flex-start"><span class="col"><span class="b sm">${esc(o.items.map((i) => i.desc + ' · ' + fmt(i.pend) + ' ' + i.und).join('; '))}</span><span class="xs mut">${esc(o.num)} · ${esc(o.prov)}${o.ent ? ' · llega ' + fCorta(o.ent) : ''}</span></span><button class="btn sm" data-a="abrirRec" data-id="${esc(o.id)}" style="width:auto;padding:8px 14px">Recibir</button></div>`).join('')}<span class="xs mut">Revisa cantidad y calidad antes de recibir. Lo que no cumple, no se recibe.</span></div>`;
   if ((D.entregasHoy || []).length) h += `<div class="card"><h3>Llega hoy a la obra</h3>${D.entregasHoy.map((e) => `<div class="col"><span class="b sm">${esc(e.txt)}</span><span class="xs mut">${esc(e.num)} · ${esc(e.prov)}</span></div>`).join('')}<span class="xs mut">La recepción se registra en Almacén, como siempre.</span></div>`;
   const locales = S.pend.filter((x) => x.kind === 'sol').map((x) => ({ num: 'Por enviar', txt: x.label, req: x.args[0].req, estado: 'Por enviar' }));
   const sols = locales.concat(D.solicitudes || []);
@@ -582,15 +602,23 @@ V.cierre = () => {
   return `<div class="scr"><div class="top">${back()}<h2>${enviado ? 'Parte enviado' : 'Revisa y envía'}</h2><span class="sm mut">Parte diario del ${fLarga(d.fecha)}</span></div><div class="body">
     <div class="col" style="gap:8px">${seccionesHtml(D, d, true)}</div>
     ${falt > 0 ? `<p class="note n-warn">Faltan ${falt} ${falt === 1 ? 'sección' : 'secciones'}. Toca una para completarla.</p>` : ''}
-    ${enviado ? '<p class="note n-ok">Ya está enviado. Si corriges algo, vuelve a guardar la sección: el cambio queda en la bitácora.</p>' : ''}
+    ${enviado && partePendiente(d.fecha) ? '<p class="note n-warn">Está guardado en el celular pero todavía no llegó al sistema. Deja la app abierta con señal hasta que diga "Todo enviado".</p>' : enviado ? '<p class="note n-ok">Ya está enviado. Si corriges algo, vuelve a guardar la sección: el cambio queda en la bitácora.</p>' : ''}
     ${enviado ? docParteHtml(d.fecha) : ''}
   </div><div class="foot"><button class="btn p" data-a="enviar" ${falt > 0 || enviado ? 'disabled' : ''}>${enviado ? 'Enviado' : falt > 0 ? 'Completa las secciones para enviar' : 'Enviar parte diario'}</button></div></div>`;
 };
 
-V.enviado = () => `<div class="scr"><div class="body" style="padding-top:48px;gap:18px">
+V.enviando = () => `<div class="scr"><div class="body" style="padding-top:64px;gap:18px;align-items:center;text-align:center">
+  <div class="spin" aria-hidden="true"></div>
+  <h2 style="font-size:26px">Enviando el parte…</h2>
+  <p class="mut">No cierres la app hasta que confirme. Suele tardar unos segundos.</p></div></div>`;
+V.enviado = () => !S.enviadoOk ? `<div class="scr"><div class="body" style="padding-top:48px;gap:18px">
+  <h2 style="font-size:26px">Parte guardado en el celular</h2>
+  <p class="note n-warn">Todavía no llegó al sistema${partePendiente(hoyLocal()) && partePendiente(hoyLocal()).err ? ': ' + esc(partePendiente(hoyLocal()).err) : ''}. Mientras tanto, el director y la oficina lo ven como borrador.</p>
+  <p class="sm">${navigator.onLine ? 'Toca "Intentar de nuevo". Si sigue igual, revisa la señal.' : 'No hay señal. Cuando vuelva, abre la app: se envía solo. No borres los datos de la app.'}</p>
+</div><div class="foot"><button class="btn p" data-a="reenviar" ${navigator.onLine ? '' : 'disabled'}>Intentar de nuevo</button><button class="btn w" data-a="go" data-v="hoy">Volver a Hoy</button></div></div>` : `<div class="scr"><div class="body" style="padding-top:48px;gap:18px">
   <div class="ok-circle">${CHECK.replace('18', '36').replace('18', '36')}</div>
-  <h2 style="font-size:28px">Parte ${navigator.onLine ? 'enviado' : 'listo'}</h2>
-  <p class="mut">${navigator.onLine ? fLarga(hoyLocal()) + '. Se registró en el sistema.' : 'Quedó guardado en el celular y se enviará solo cuando vuelva la señal.'}</p>
+  <h2 style="font-size:28px">Parte enviado</h2>
+  <p class="mut">${fLarga(hoyLocal())}. Llegó al sistema: ya lo ven el director y la oficina.</p>
   <div class="hero" style="flex-direction:row;align-items:center;gap:14px"><span style="font-size:34px;font-weight:800">${S.enviadoRacha}</span><span class="sm">${S.enviadoRacha === 1 ? 'día' : 'días seguidos'} con el parte enviado. Tu obra suma en el panel de la oficina.</span></div>
   ${navigator.onLine ? docParteHtml(hoyLocal()) : ''}
   <div class="card"><h3>Se actualiza solo, sin escribir nada más</h3><span class="sm">Avance de la semana y PPC</span><span class="sm">Horas-hombre y horas de cada equipo</span><span class="sm">Causas de lo que no avanzó, para la reunión semanal</span></div>
@@ -693,7 +721,16 @@ V.ppc = () => {
 };
 
 /* ---- solicitud ---- */
-function nuevaSol(tipo) { S.sol = { tipo: tipo, id: '', desc: '', und: '', q: 0, tarea: '', req: '', obs: '', q2: '', otro: false }; S.view = 'sol'; render(); }
+function nuevaSol(tipo) { S.sol = { tipo: tipo, id: '', desc: '', und: '', q: 0, tarea: '', req: '', obs: '', q2: '', otro: false, items: [] }; S.view = 'sol'; render(); }
+/* Varios materiales en una solicitud: el que está elegido arriba se suma a la lista con "Agregar a la lista". */
+function solActual() { const s = S.sol; return s.desc && num(s.q) > 0 ? { id: s.otro ? '' : s.id, desc: s.desc, und: s.und, q: num(s.q) } : null; }
+function solItems() { const s = S.sol; const a = s.items.slice(); const c = solActual(); if (c) { const j = a.findIndex((x) => (c.id ? x.id === c.id : !x.id && x.desc.toLowerCase() === c.desc.toLowerCase())); if (j >= 0) a[j] = Object.assign({}, a[j], { q: a[j].q + c.q }); else a.push(c); } return a; }
+function solListo() { return solItems().length > 0 && !!S.sol.req; }
+function solBtnTxt() { const s = S.sol; const n = solItems().length; return solListo() ? 'Enviar solicitud' + (n > 1 ? ' (' + n + ' ' + (s.tipo === 'Material' ? 'materiales' : 'equipos') + ')' : '') : !n ? (s.desc ? 'Indica la cantidad' : 'Elige qué necesitas') : 'Elige cuándo se usa'; }
+function solListaHtml() {
+  const s = S.sol; if (!s.items.length) return '';
+  return `<div class="card" style="padding:10px 12px;gap:6px"><span class="l">En esta solicitud (${s.items.length})</span>${s.items.map((x, k) => `<div class="between"><span class="sm"><b>${esc(x.desc)}</b> · ${fmt(x.q)} ${esc(x.und)}</span><button class="lnk" data-a="solDel" data-k="${k}" aria-label="Quitar ${esc(x.desc)}">Quitar</button></div>`).join('')}</div>`;
+}
 function catSol() {
   const D = S.data; const s = S.sol;
   const list = s.tipo === 'Material' ? D.cat.productos.map((p) => ({ id: p.id, n: p.nombre, u: p.unidad })) : D.cat.equipos.map((e) => ({ id: e.id, n: e.nombre, u: 'días' }));
@@ -710,16 +747,18 @@ V.sol = () => {
   const fechas = [1, 2, 3, 4, 5, 6, 7].map((i) => addDays(hoy, i)).filter((f) => dOf(f).getDay() !== 0).slice(0, 6);
   const tareas = (D.plan || []).map((p) => p.nombre).filter((v, i, a) => a.indexOf(v) === i).concat(['No está en el plan']);
   const urg = s.req && s.req <= addDays(hoy, 1);
-  const listo = s.desc && num(s.q) > 0 && s.req;
+  const listo = solListo(); const cur = solActual();
   return `<div class="scr"><div class="top">${back('Cancelar')}<h2>Nueva solicitud a obra</h2><span class="sm mut">${esc((D.obras.find((o) => o.id === S.obra) || {}).nombre || '')}</span></div><div class="body" style="gap:18px">
     <div class="col" style="gap:8px"><span class="l">1. ¿Qué necesitas?</span>
-      <div class="grid2"><button class="btn ${s.tipo === 'Material' ? 'd' : ''}" data-a="solTipo" data-t="Material">Material</button><button class="btn ${s.tipo === 'Equipo' ? 'd' : ''}" data-a="solTipo" data-t="Equipo">Equipo o maquinaria</button></div>
+      ${s.items.length ? `<span class="xs mut">Pidiendo ${s.tipo === 'Material' ? 'materiales' : 'equipos'}. Para pedir ${s.tipo === 'Material' ? 'equipos' : 'materiales'}, envía esta solicitud y haz otra.</span>` : `<div class="grid2"><button class="btn ${s.tipo === 'Material' ? 'd' : ''}" data-a="solTipo" data-t="Material">Material</button><button class="btn ${s.tipo === 'Equipo' ? 'd' : ''}" data-a="solTipo" data-t="Equipo">Equipo o maquinaria</button></div>`}
       <input class="f" type="search" placeholder="Buscar en el catálogo" value="${esc(s.q2)}" data-i="solBuscar" aria-label="Buscar en el catálogo">
       <div class="chips" id="catList">${catHtml()}</div>
       <div id="otroBox" class="${s.otro ? '' : 'hide'} grid2"><input class="f" placeholder="Descripción" value="${esc(s.otro ? s.desc : '')}" data-i="solDesc" aria-label="Descripción"><input class="f" placeholder="Unidad" value="${esc(s.otro ? s.und : '')}" data-i="solUnd" aria-label="Unidad"></div>
     </div>
     <div class="col" style="gap:8px"><span class="l">2. ¿Cuánto?</span>
       <div class="card" style="padding:10px 12px"><div class="step"><button data-a="solQ" data-d="-1" aria-label="Restar">−</button><input type="number" inputmode="decimal" min="0" value="${num(s.q) || ''}" placeholder="0" data-i="solQ" aria-label="Cantidad"><button class="plus" data-a="solQ" data-d="1" aria-label="Sumar">+</button></div><span class="xs mut center">${esc(s.und || 'unidad')}</span></div>
+      <button class="btn o" data-a="solAdd" ${cur ? '' : 'disabled'}>+ Agregar a la lista y pedir otro ${s.tipo === 'Material' ? 'material' : 'equipo'}</button>
+      <div id="solLista">${solListaHtml()}</div>
     </div>
     <div class="col" style="gap:8px"><span class="l">3. ¿Para qué tarea?</span><div class="chips">${tareas.map((t) => `<button class="chip sm ${s.tarea === t ? 'on' : ''}" data-a="solTarea" data-c="${esc(t)}">${esc(t)}</button>`).join('')}</div></div>
     <div class="col" style="gap:8px"><span class="l">4. ¿Cuándo se usa en obra?</span>
@@ -729,7 +768,17 @@ V.sol = () => {
       ${s.tarea === 'No está en el plan' ? '<p class="note n-n">Como no está en el plan, también lo verá el director de obra.</p>' : ''}
     </div>
     <div class="col" style="gap:8px"><label class="l" for="sobs">5. Detalle (opcional)</label><textarea id="sobs" class="f" rows="2" data-i="solObs" placeholder="Especificación, marca, lugar de descarga… o dicta">${esc(s.obs)}</textarea></div>
-  </div><div class="foot"><button class="btn p" data-a="enviarSol" ${listo ? '' : 'disabled'}>${listo ? 'Enviar solicitud' : !s.desc ? 'Elige qué necesitas' : !(num(s.q) > 0) ? 'Indica la cantidad' : 'Elige cuándo se usa'}</button></div></div>`;
+  </div><div class="foot"><button class="btn p" data-a="enviarSol" ${listo ? '' : 'disabled'}>${solBtnTxt()}</button></div></div>`;
+};
+V.recibir = () => {
+  const o = ((S.data && S.data.porRecibir) || []).find((x) => x.id === S.recSel);
+  if (!o) return V.hoy();
+  return `<div class="scr"><div class="top">${back('Cancelar')}<h2>Recibir en obra</h2><span class="sm mut">${esc(o.num)} · ${esc(o.prov)}</span></div><div class="body" style="gap:14px">
+    <p class="note n-n">Cuenta y revisa lo que llegó. Anota solo lo que recibes conforme; lo que falta queda pendiente.</p>
+    ${o.items.map((i) => `<div class="card" style="padding:10px 12px"><span class="b sm">${esc(i.desc)}</span><span class="xs mut">Pendiente: ${fmt(i.pend)} ${esc(i.und)}</span><div class="step"><input type="number" inputmode="decimal" min="0" max="${i.pend}" value="${i.pend}" data-rk="${i.k}" aria-label="Recibido de ${esc(i.desc)}"></div></div>`).join('')}
+    <label class="l" for="recFac">Factura o nota de remisión N° (opcional)</label><input id="recFac" class="f" placeholder="Ej. 001234">
+    ${navigator.onLine ? '' : '<p class="note n-warn">Sin señal: la recepción necesita conexión.</p>'}
+  </div><div class="foot"><button class="btn p" data-a="recibir" ${navigator.onLine ? '' : 'disabled'}>Registrar recepción</button></div></div>`;
 };
 V.solok = () => {
   const s = S.solOk; const mat = s.tipo === 'Material';
@@ -737,7 +786,7 @@ V.solok = () => {
     : ['Transporte revisa los equipos propios: si hay uno libre, lo asigna para esa fecha.', 'Si no hay, Adquisiciones gestiona el alquiler por el tiempo que pediste.', 'Llega a obra en la fecha de uso; sus horas se marcan cada día en Equipos y maquinaria.'];
   return `<div class="scr"><div class="body" style="padding-top:48px;gap:18px"><div class="ok-circle">${CHECK.replace('18', '36').replace('18', '36')}</div>
     <h2 style="font-size:26px">${navigator.onLine ? 'Solicitud enviada' : 'Solicitud guardada'}</h2>
-    <span class="b">${esc(s.desc)} · ${fmt(s.q)} ${esc(s.und)}</span><span class="sm mut">Para el ${fLarga(s.req)}${s.tarea ? ' · ' + esc(s.tarea) : ''}</span>
+    <div class="col" style="gap:4px">${(s.lista || []).map((x) => `<span class="b">${esc(x.desc)} · ${fmt(x.q)} ${esc(x.und)}</span>`).join('')}</div><span class="sm mut">Para el ${fLarga(s.req)}${s.tarea ? ' · ' + esc(s.tarea) : ''}</span>
     ${navigator.onLine ? '' : '<p class="note n-warn">Sin señal: se enviará sola cuando vuelva la conexión.</p>'}
     <div class="card"><h3>Qué pasa ahora</h3>${pasos.map((p, i) => `<div class="row" style="align-items:flex-start"><span class="dot ok" style="width:28px;height:28px;font-size:13px">${i + 1}</span><span class="sm">${p}</span></div>`).join('')}</div>
     <span class="sm mut">Verás el estado en "Mis solicitudes", en tu pantalla Hoy.</span>
@@ -933,27 +982,50 @@ const A = {
     const pl = partePayload(d, 'Enviado'); pl.solo = await soloPendiente(k, Object.keys(d.sucio || {}).concat(['estado']));
     d.estado = 'Enviado'; d.sucio = {}; saveDraft(d);
     const D = S.data; S.enviadoRacha = (D.racha || 0) + (D.parteHoy && D.parteHoy.estado === 'Enviado' ? 0 : 1);
-    await enqueue(k, 'guardarParte', [pl], 'Parte del ' + fCorta(d.fecha) + ' (enviado)', 'parte');
-    S.view = 'enviado'; render();
+    await OB.put({ k: k, fn: 'guardarParte', args: [pl], label: 'Parte del ' + fCorta(d.fecha) + ' (enviado)', kind: 'parte', ts: Date.now(), tries: 0, err: '' });
+    await contarPend();
+    S.view = navigator.onLine ? 'enviando' : 'enviado'; S.enviadoOk = false; render();
+    if (navigator.onLine) { S.enviadoOk = await esperarEnvio(k); await contarPend(); S.view = 'enviado'; render(); }
+  },
+  reenviar: async () => {
+    const k = 'parte:' + S.obra + ':' + hoyLocal(); const it = (await OB.all()).find((x) => x.k === k);
+    if (it) { it.err = ''; it.tries = 0; await OB.put(it); }
+    S.view = 'enviando'; render();
+    S.enviadoOk = await esperarEnvio(k); await contarPend(); S.view = 'enviado'; render();
   },
   nuevaSol: (el) => nuevaSol(el.dataset.t),
   solTipo: (el) => { S.sol = Object.assign(S.sol, { tipo: el.dataset.t, id: '', desc: '', und: '', otro: false, q2: '' }); render(); },
   solItem: (el) => { const x = catSol().find((i) => String(i.id) === el.dataset.id); if (!x) return; const same = S.sol.id === x.id; Object.assign(S.sol, { id: x.id, desc: x.n, und: x.u || 'unidad', otro: false, q: same ? S.sol.q : (num(S.sol.q) || 1) }); render(); },
   solOtro: () => { Object.assign(S.sol, { id: '', desc: '', und: '', otro: true }); render(); setTimeout(() => { const i = document.querySelector('[data-i="solDesc"]'); if (i) i.focus(); }, 30); },
   solQ: (el) => { S.sol.q = Math.max(0, num(S.sol.q) + Number(el.dataset.d)); render(); },
+  solAdd: () => { const c = solActual(); if (!c) return; S.sol.items = solItems(); Object.assign(S.sol, { id: '', desc: '', und: '', q: 0, otro: false, q2: '' }); render(); toast(c.desc + ' agregado. Elige el siguiente o envía la solicitud.'); },
+  solDel: (el) => { S.sol.items.splice(Number(el.dataset.k), 1); render(); },
   solTarea: (el) => { S.sol.tarea = S.sol.tarea === el.dataset.c ? '' : el.dataset.c; render(); },
   solReq: (el) => { S.sol.req = el.dataset.f; render(); },
   enviarSol: async () => {
-    const s = S.sol; if (!(s.desc && num(s.q) > 0 && s.req)) return;
+    const s = S.sol; if (!solListo()) return;
+    const lista = solItems();
     const cid = newId();
-    const args = { cid: cid, obra: S.obra, tipo: s.tipo, cod: s.otro ? '' : s.id, desc: s.desc, und: s.und, q: num(s.q), req: s.req, tarea: s.tarea === 'No está en el plan' ? 'No está en el plan' : s.tarea, obs: s.obs };
-    await enqueue('sol:' + cid, 'crearSolicitud', [args], s.desc + ' · ' + fmt(s.q) + ' ' + s.und, 'sol');
-    S.solOk = Object.assign({}, s); S.sol = null; S.view = 'solok'; render();
+    const args = { cid: cid, obra: S.obra, tipo: s.tipo, items: lista.map((x) => ({ cod: x.id || '', desc: x.desc, und: x.und, q: x.q })), req: s.req, tarea: s.tarea === 'No está en el plan' ? 'No está en el plan' : s.tarea, obs: s.obs };
+    const label = lista[0].desc + ' · ' + fmt(lista[0].q) + ' ' + lista[0].und + (lista.length > 1 ? ' y ' + (lista.length - 1) + ' más' : '');
+    await enqueue('sol:' + cid, 'crearSolicitud', [args], label, 'sol');
+    S.solOk = Object.assign({}, s, { lista: lista }); S.sol = null; S.view = 'solok'; render();
   },
   abrirProg: () => abrirProg(),
   abrirPPC: (el) => abrirPPC(el.dataset.v),
   abrirPartes: () => abrirPartes(),
   verParte: (el) => { S.histSel = el.dataset.id; S.view = 'parteVer'; render(); },
+  abrirRec: (el) => { S.recSel = el.dataset.id; S.view = 'recibir'; render(); },
+  recibir: async () => {
+    const recs = Array.from(document.querySelectorAll('[data-rk]')).map((i) => ({ k: Number(i.dataset.rk), q: num(i.value) })).filter((x) => x.q > 0);
+    if (!recs.length) return toast('Anota al menos una cantidad recibida.', true);
+    const over = Array.from(document.querySelectorAll('[data-rk]')).some((i) => num(i.value) > num(i.max) + 1e-9);
+    if (over) return toast('No puedes recibir más de lo pendiente.', true);
+    try {
+      await withBusy(() => api('recibirObra', S.recSel, ($('#recFac') || {}).value || '', recs));
+      toast('Recepción registrada: entrada y salida a obra en el kardex.'); S.view = 'hoy'; await cargar();
+    } catch (x) { toast(x.net ? 'Sin conexión: la recepción necesita señal.' : x.message, true); }
+  },
   ppcSem: (el) => abrirPPC('', el.dataset.l),
   ppcCausa: async (el) => {
     if (!navigator.onLine) return toast('Sin señal: la causa se guarda solo con conexión.', true);
@@ -1026,12 +1098,12 @@ document.addEventListener('input', (e) => {
   if (k === 'nov' || k === 'asiento' || k === 'parM') { const d = draft(); d[k === 'parM' ? 'par_m' : k] = v; marcar(d, 'novedades'); saveDraft(d); }
   else if (k === 'solBuscar') { S.sol.q2 = v; const c = $('#catList'); if (c) c.innerHTML = catHtml(); }
   else if (k === 'solDesc') { S.sol.desc = v.trim(); refreshSolBtn(); }
-  else if (k === 'solUnd') { S.sol.und = v.trim(); }
+  else if (k === 'solUnd') { S.sol.und = v.trim(); refreshSolBtn(); }
   else if (k === 'solObs') { S.sol.obs = v; }
   else if (k === 'progQ') { S.progQ = v; const P = S.prog; const sem = P.semanas.find((w) => w.lunes === S.progSem); const en = P.plan.filter((p) => p.semana === sem.lunes).map((p) => p.tarea); const q = v.trim().toLowerCase(); $('#tarList').innerHTML = tarList(P.tareas.filter((t) => en.indexOf(t.id) < 0 && (!q || (t.nombre + ' ' + t.lugar + ' ' + t.item).toLowerCase().indexOf(q) >= 0))); }
   else if (k === 'nv') { S.nueva[el.dataset.k] = v; }
 });
-function refreshSolBtn() { const b = document.querySelector('[data-a="enviarSol"]'); const s = S.sol; if (!b || !s) return; const listo = s.desc && num(s.q) > 0 && s.req; b.disabled = !listo; b.textContent = listo ? 'Enviar solicitud' : !s.desc ? 'Elige qué necesitas' : !(num(s.q) > 0) ? 'Indica la cantidad' : 'Elige cuándo se usa'; }
+function refreshSolBtn() { const b = document.querySelector('[data-a="enviarSol"]'); const s = S.sol; if (!b || !s) return; b.disabled = !solListo(); b.textContent = solBtnTxt(); const a = document.querySelector('[data-a="solAdd"]'); if (a) a.disabled = !solActual(); }
 document.addEventListener('change', (e) => {
   const el = e.target; const k = el.dataset && el.dataset.i; if (!k) return;
   const v = el.value;

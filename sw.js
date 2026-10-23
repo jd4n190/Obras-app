@@ -1,7 +1,8 @@
 // App de obra: guarda la aplicación en el celular para abrirla sin señal.
-const C = 'obra-app-v4.3.0';
+const C = 'obra-app-v4.4.1';
 const SHELL = ['./', './index.html', './manifest.webmanifest', './icon-192.png', './icon-512.png', './apple-touch-icon.png'];
-self.addEventListener('install', (e) => { e.waitUntil(caches.open(C).then((c) => c.addAll(SHELL)).then(() => self.skipWaiting())); });
+// cache: 'reload' = baja la versión nueva del servidor, no la copia que el navegador guardó hace unos minutos.
+self.addEventListener('install', (e) => { e.waitUntil(caches.open(C).then((c) => c.addAll(SHELL.map((u) => new Request(u, { cache: 'reload' })))).then(() => self.skipWaiting())); });
 self.addEventListener('activate', (e) => {
   e.waitUntil(caches.keys().then((ks) => Promise.all(ks.filter((k) => k !== C).map((k) => caches.delete(k)))).then(() => self.clients.claim()));
 });
