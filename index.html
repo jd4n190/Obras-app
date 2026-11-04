@@ -119,9 +119,11 @@ label.l{font-size:15px;font-weight:700}
 <body>
 <div id="app"></div>
 <input type="file" id="cam" accept="image/*" capture="environment" multiple class="hide">
+<input type="file" id="camRec" accept="image/*" capture="environment" class="hide">
+<input type="file" id="camGas" accept="image/*" capture="environment" class="hide">
 <script>
 'use strict';
-const VERSION = '4.4.2';
+const VERSION = '4.5';
 const CHECK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L19 7"/></svg>';
 const CHEV = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A847A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 const BACKI = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
@@ -139,7 +141,15 @@ const MESES = ['enero', 'febrero', 'marzo', 'abril', 'mayo', 'junio', 'julio', '
 /* ---------- utilidades ---------- */
 const $ = (s) => document.querySelector(s);
 const esc = (s) => String(s == null ? '' : s).replace(/[&<>"']/g, (c) => ({ '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;' }[c]));
-const num = (v) => { const n = Number(String(v == null ? '' : v).replace(',', '.')); return isFinite(n) ? n : 0; };
+// Acepta coma o punto decimal: 2,5 · 2.5 · 1.234,5 · 1,234.5
+const num = (v) => {
+  let t = String(v == null ? '' : v).trim().replace(/\s/g, '');
+  if (t.indexOf(',') >= 0 && t.indexOf('.') >= 0) t = t.lastIndexOf(',') > t.lastIndexOf('.') ? t.replace(/\./g, '').replace(',', '.') : t.replace(/,/g, '');
+  else t = t.replace(',', '.');
+  const n = Number(t); return isFinite(n) ? n : 0;
+};
+// Cantidad para mostrar en un campo: con coma decimal, como se escribe en Bolivia; vacío si es cero.
+const dec = (v, cero) => { const n = Math.round(num(v) * 1000) / 1000; return n || cero ? String(n).replace('.', ',') : ''; };
 const fmt = (n) => (Math.round(num(n) * 100) / 100).toLocaleString('es-BO');
 const pad = (n) => String(n).padStart(2, '0');
 const iso = (d) => d.getFullYear() + '-' + pad(d.getMonth() + 1) + '-' + pad(d.getDate());
@@ -242,7 +252,7 @@ async function enqueue(k, fn, args, label, kind) {
   await contarPend();
   sync();
 }
-const PRIO = { sol: 0, parte: 1, foto: 2 };
+const PRIO = { sol: 0, parte: 1, rec: 1, ver: 2, desp: 2, gasto: 2, rend: 3, foto: 4 };
 async function sync() {
   // Si ya hay un envío en curso, se anota y se repite al terminar (antes esperaba hasta 30 s y,
   // si la app se cerraba en ese tiempo, el parte quedaba en el celular y el sistema lo mostraba como borrador).
@@ -254,6 +264,8 @@ async function sync() {
     const items = (await OB.all()).sort((a, b) => (PRIO[a.kind] - PRIO[b.kind]) || (a.ts - b.ts));
     for (const it of items) {
       if (it.tries >= 3 && it.err && !it.retry) continue;
+      // 4.5: la rendición se envía solo cuando ya llegaron todos los gastos de ese fondo
+      if (it.kind === 'rend' && (await OB.all()).some((x) => x.kind === 'gasto' && x.args[0] && x.args[0].fondo === it.args[0])) continue;
       try {
         await api(it.fn, ...it.args);
         const cur = (await OB.all()).filter((x) => x.k === it.k)[0];
@@ -490,24 +502,48 @@ V.hoy = () => {
       <div class="segs">${SECCIONES.map((s) => '<i class="' + (d.secciones.indexOf(s[0]) >= 0 ? 'on' : '') + '"></i>').join('')}</div>
       <span class="sm mut">${pend ? (pend.err ? 'No llegó al sistema: ' + esc(pend.err) + '. Toca el aviso de arriba para reintentar.' : 'Está en el celular y todavía no llegó al sistema: la oficina lo ve como borrador. Deja la app abierta con señal hasta que diga "Todo enviado".') : enviado ? 'Puedes corregirlo durante el día; cada cambio queda registrado.' : n === 4 ? 'Todo listo. Revisa y envía.' : 'Unos 5 minutos. Puedes ir llenando durante el día.'}</span></div>`;
   }
+  if (P.parte && S.obra) h += borradoresHtml(D);
+  h += fondosHtml(D);
   if (P.solicitar && S.obra) h += `<div class="grid2"><button class="btn o" data-a="nuevaSol" data-t="Material">+ Pedir material</button><button class="btn o" data-a="nuevaSol" data-t="Equipo">+ Pedir equipo</button></div>`;
   if (P.parte && S.obra) h += `<div class="col" style="gap:8px">${seccionesHtml(D, draft())}</div>`;
   if (!P.parte && P.verParte && S.obra) h += avanceSemanaHtml(D);
   if ((P.verParte || P.parte) && S.obra) h += `<button class="sec" data-a="abrirPartes"><span class="col" style="flex:1"><span class="b" style="font-size:17px">Partes anteriores</span><span class="sm mut">Qué se ejecutó, qué no y por qué, día por día</span></span>${CHEV}</button>`;
   if (P.verProg || P.prog) h += `<button class="sec" data-a="abrirPPC" data-v="hoy"><span class="col" style="flex:1"><span class="b" style="font-size:17px">Cierre de semana y PPC</span><span class="sm mut">Tareas cumplidas, causas y documento F-O05-04</span></span>${CHEV}</button>`;
   if (P.verProg || P.prog) h += `<button class="sec" data-a="abrirProg"><span class="col" style="flex:1"><span class="b" style="font-size:17px">Programación semanal</span><span class="sm mut">${P.prog ? 'Lookahead, restricciones y plan de la semana' : 'Ver el plan y las restricciones'}${D.ppc ? ' · PPC semana pasada ' + D.ppc.pct + '%' : ''}</span></span>${CHEV}</button>`;
-  if ((D.porRecibir || []).length) h += `<div class="card"><h3>Por recibir en obra</h3>${D.porRecibir.map((o) => `<div class="between" style="align-items:flex-start"><span class="col"><span class="b sm">${esc(o.items.map((i) => i.desc + ' · ' + fmt(i.pend) + ' ' + i.und).join('; '))}</span><span class="xs mut">${esc(o.num)} · ${esc(o.prov)}${o.ent ? ' · llega ' + fCorta(o.ent) : ''}</span></span><button class="btn sm" data-a="abrirRec" data-id="${esc(o.id)}" style="width:auto;padding:8px 14px">Recibir</button></div>`).join('')}<span class="xs mut">Revisa cantidad y calidad antes de recibir. Lo que no cumple, no se recibe.</span></div>`;
+  if ((D.porVerificar || []).length) h += `<div class="card" style="border-color:var(--warn)"><h3>Recepciones por verificar</h3>${D.porVerificar.map((r) => `<div class="between" style="align-items:flex-start"><span class="col"><span class="b sm">${esc(r.items.map((i) => i.desc + ' · ' + fmt(i.q) + ' ' + i.und).join('; '))}</span><span class="xs mut">${esc(r.ocNum)} · recibió ${esc(r.quien)}</span></span><button class="btn sm" data-a="verRec" data-id="${esc(r.id)}" style="width:auto;padding:8px 14px">Verificar</button></div>`).join('')}</div>`;
+  if ((D.despachos || []).length) h += `<div class="card"><h3>Llegó del almacén</h3>${D.despachos.map((d) => `<div class="between" style="align-items:flex-start"><span class="col"><span class="b sm">${esc(d.items.map((i) => i.desc + ' · ' + fmt(i.q) + ' ' + i.und).join('; '))}</span><span class="xs mut">${esc(d.solNum || d.doc || 'Despacho')} · ${fCorta(d.fecha)}</span></span><button class="btn sm" data-a="abrirDesp" data-id="${esc(d.id)}" style="width:auto;padding:8px 14px">Confirmar</button></div>`).join('')}</div>`;
+  if ((D.porRecibir || []).length) h += `<div class="card"><h3>Por recibir en obra</h3>${D.porRecibir.map((o) => `<div class="between" style="align-items:flex-start"><span class="col"><span class="b sm">${esc(o.items.map((i) => i.desc + ' · ' + fmt(i.pend) + ' ' + i.und).join('; '))}</span><span class="xs mut">${esc(o.num)} · ${esc(o.prov)}${o.ent ? ' · llega ' + fCorta(o.ent) : ''}${o.franja ? ' · ' + esc(o.franja) : ''}</span></span><button class="btn sm" data-a="abrirRec" data-id="${esc(o.id)}" style="width:auto;padding:8px 14px">Recibir</button></div>`).join('')}<span class="xs mut">Revisa cantidad y calidad antes de recibir. Lo que no cumple, no se recibe.</span></div>`;
   if ((D.entregasHoy || []).length) h += `<div class="card"><h3>Llega hoy a la obra</h3>${D.entregasHoy.map((e) => `<div class="col"><span class="b sm">${esc(e.txt)}</span><span class="xs mut">${esc(e.num)} · ${esc(e.prov)}</span></div>`).join('')}<span class="xs mut">La recepción se registra en Almacén, como siempre.</span></div>`;
   const locales = S.pend.filter((x) => x.kind === 'sol').map((x) => ({ num: 'Por enviar', txt: x.label, req: x.args[0].req, estado: 'Por enviar' }));
   const sols = locales.concat(D.solicitudes || []);
   if (P.solicitar || sols.length) h += `<div class="card"><h3>Mis solicitudes</h3>${sols.length ? sols.slice(0, 8).map((s) => `<div class="between" style="align-items:flex-start"><span class="col"><span class="sm b">${esc(s.txt)}</span><span class="xs mut">${esc(s.num)} · uso ${s.req ? fCorta(s.req) : '—'}</span></span><span class="tag ${solTone(s.estado)}">${esc(s.estado)}</span></div>`).join('') : '<span class="sm mut">Todavía no hay solicitudes de esta obra.</span>'}</div>`;
   if ((D.restricciones || []).length) h += `<div class="card"><h3>Restricciones abiertas</h3>${D.restricciones.slice(0, 6).map((r) => `<div class="col"><span class="sm b">Falta ${esc(r.cond.toLowerCase())} · ${esc(r.tarea)}</span><span class="xs ${r.limite <= addDays(hoyLocal(), 1) ? 'b" style="color:var(--warn)' : 'mut'}">${esc(r.resp)} · hasta el ${fCorta(r.limite)}</span></div>`).join('')}</div>`;
-  if (!P.parte && !P.solicitar && !P.verProg && !P.prog) h += `<div class="card"><h3>Tu cargo usa el sistema anterior</h3><p class="sm mut">Por ahora, Compras, Almacén, Transporte y Seguridad siguen en el sistema anterior. Esta app tendrá sus pantallas en la siguiente etapa.</p><a class="btn w" href="${esc(S.api)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Abrir el sistema anterior</a></div>`;
+  if (P.encargado && !P.parte && !(D.porRecibir || []).length && !(D.despachos || []).length) h += `<div class="card"><h3>Encargado de recepción</h3><p class="sm mut">No hay entregas pendientes en esta obra. Cuando llegue un proveedor o un despacho del almacén aparecerá aquí.</p></div>`;
+  if (!P.parte && !P.solicitar && !P.verProg && !P.prog && !P.recibir && !(D.fondos || []).length) h += `<div class="card"><h3>Tu cargo usa el sistema anterior</h3><p class="sm mut">Por ahora, Compras, Almacén, Transporte y Seguridad siguen en el sistema anterior. Esta app tendrá sus pantallas en la siguiente etapa.</p><a class="btn w" href="${esc(S.api)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Abrir el sistema anterior</a></div>`;
   h += `</div>`;
   if (P.parte && S.obra) h += `<div class="foot"><button class="btn p" data-a="go" data-v="cierre">${draft().estado === 'Enviado' ? 'Ver el parte enviado' : 'Revisar y enviar parte'}</button></div>`;
   return h + `</div>`;
 };
 
+// 4.4.3 · Partes de días anteriores que quedaron en borrador: se envían con un toque (también sin señal).
+function antPend(f) { return S.pend.find((x) => x.k === 'enviar:' + S.obra + ':' + f) || null; }
+function faltanTxt(secc) { return SECCIONES.filter((x) => (secc || []).indexOf(x[0]) < 0).map((x) => x[1]).join(', '); }
+function borradoresHtml(D) {
+  const L = (D.borradores || []).filter((b) => b.fecha !== hoyLocal());
+  if (!L.length) return '';
+  return `<div class="card" style="border-color:var(--warn)"><h3>${L.length === 1 ? 'Un parte quedó sin enviar' : L.length + ' partes quedaron sin enviar'}</h3>
+    <span class="sm mut">${L.length === 1 ? 'Se guardó como borrador y la oficina no lo cuenta como enviado.' : 'Se guardaron como borrador y la oficina no los cuenta como enviados.'}</span>
+    ${L.map((b) => { const pe = antPend(b.fecha); const f = faltanTxt(b.secciones); return `<div class="between" style="align-items:center"><span class="col"><span class="b sm">${cap(fLarga(b.fecha))}</span><span class="xs mut">${b.secciones.length} de 4 secciones${f ? ' · falta: ' + esc(f) : ''}</span></span>${pe ? `<span class="tag t-warn">${pe.err ? 'No se envió' : 'Por enviar'}</span>` : `<button class="btn sm" data-a="enviarAnt" data-f="${b.fecha}" style="width:auto;padding:8px 14px">Enviar</button>`}</div>`; }).join('')}</div>`;
+}
+async function enviarAnterior(f, secc) {
+  const falta = faltanTxt(secc);
+  if (falta && !confirm('Al parte del ' + fLarga(f) + ' le falta: ' + falta + '.\n¿Enviarlo así?')) return;
+  await enqueue('enviar:' + S.obra + ':' + f, 'enviarParte', [S.obra, f], 'Parte del ' + fCorta(f) + ' (enviado)', 'parte');
+  if (S.data && S.data.borradores) S.data.borradores = S.data.borradores.filter((b) => b.fecha !== f);
+  const h = (S.hist || []).find((x) => x.fecha === f); if (h) h.estado = 'Enviado';
+  render();
+  toast(navigator.onLine ? 'Parte enviado.' : 'Guardado en el celular. Se enviará cuando haya señal.');
+}
 function causaTxt(c) { const x = ((S.data && S.data.causas) || []).find((y) => y[0] === c); return x ? x[1] : c; }
 function avanceSemanaHtml(D) {
   const plan = (D.plan || []).slice().sort((a, b) => (a.modo === 'Reserva') - (b.modo === 'Reserva'));
@@ -542,7 +578,7 @@ V.avance = () => {
       <div class="bar"><i class="${completa ? 'g' : ''}" style="width:${pct}%"></i></div>
       <span class="xs mut">${fmt(total)} de ${fmt(meta)} ${esc(p.unidad)} en la semana · ${pct}%</span>
       <div class="step"><button data-a="avq" data-id="${p.id}" data-d="-1" aria-label="Restar">−</button>
-        <input type="number" inputmode="decimal" min="0" step="any" value="${num(a.q) || ''}" placeholder="0" data-i="avq" data-id="${p.id}" aria-label="Cantidad de hoy en ${esc(p.unidad)}">
+        <input type="text" inputmode="decimal" autocomplete="off" value="${dec(a.q)}" placeholder="0" data-i="avq" data-id="${p.id}" aria-label="Cantidad de hoy en ${esc(p.unidad)}">
         <button class="plus" data-a="avq" data-id="${p.id}" data-d="1" aria-label="Sumar">+</button></div>
       <span class="xs mut center">${esc(p.unidad)} hechos hoy</span>
       ${antesOk && num(a.q) === 0 ? `<span class="sm" style="color:var(--okfg)">Ya cumplida en días anteriores: no hace falta registrar nada. Anota solo si hoy hubo trabajo adicional.</span>` : ''}
@@ -574,7 +610,7 @@ V.equipos = () => {
     const x = d.equipos[e.id] || { est: 'Trabajó', ht: J };
     h += `<div class="card"><span class="col"><span class="b">${esc(e.nombre)}</span><span class="xs mut">${esc(e.tipo || '')}</span></span>
       <div class="seg">${['Trabajó', 'Parado', 'Averiado'].map((s) => `<button class="${x.est === s ? 'on ' + (s === 'Trabajó' ? 'g' : s === 'Averiado' ? 'r' : '') : ''}" data-a="eqEst" data-id="${esc(e.id)}" data-s="${s}">${s}</button>`).join('')}</div>
-      ${x.est === 'Trabajó' ? `<div class="row"><span class="sm mut" style="flex:1">Horas trabajadas</span><div class="step s"><button data-a="eqH" data-id="${esc(e.id)}" data-d="-1" aria-label="Restar una hora">−</button><input type="number" inputmode="decimal" min="0" max="24" value="${num(x.ht)}" data-i="eqH" data-id="${esc(e.id)}" aria-label="Horas"><button class="plus" data-a="eqH" data-id="${esc(e.id)}" data-d="1" aria-label="Sumar una hora">+</button></div></div>` : ''}
+      ${x.est === 'Trabajó' ? `<div class="row"><span class="sm mut" style="flex:1">Horas trabajadas</span><div class="step s"><button data-a="eqH" data-id="${esc(e.id)}" data-d="-1" aria-label="Restar una hora">−</button><input type="text" inputmode="decimal" autocomplete="off" min="0" max="24" value="${dec(x.ht, true)}" data-i="eqH" data-id="${esc(e.id)}" aria-label="Horas"><button class="plus" data-a="eqH" data-id="${esc(e.id)}" data-d="1" aria-label="Sumar una hora">+</button></div></div>` : ''}
       ${x.est === 'Averiado' ? '<span class="note n-bad">Avisa a Transporte y agrega una foto en Novedades.</span>' : ''}
     </div>`;
   });
@@ -588,7 +624,7 @@ V.novedades = () => {
     <div class="col" style="gap:8px"><span class="l">Clima en la mañana</span>${chips(CLIMAS, d.clima_m, 'climaM')}</div>
     <div class="col" style="gap:8px"><span class="l">Clima en la tarde</span>${chips(CLIMAS, d.clima_t, 'climaT')}</div>
     <div class="col" style="gap:8px"><span class="l">¿Pasó algo hoy?</span>${chips(EVENTOS, d.eventos, 'evento')}</div>`;
-  if (d.eventos.indexOf('Paralización') >= 0) h += `<div class="card"><div class="row"><span class="sm b" style="flex:1">Horas paralizadas</span><div class="step s"><button data-a="parH" data-d="-1" aria-label="Restar">−</button><input type="number" inputmode="decimal" min="0" value="${num(d.par_h) || ''}" placeholder="0" data-i="parH" aria-label="Horas paralizadas"><button class="plus" data-a="parH" data-d="1" aria-label="Sumar">+</button></div></div>
+  if (d.eventos.indexOf('Paralización') >= 0) h += `<div class="card"><div class="row"><span class="sm b" style="flex:1">Horas paralizadas</span><div class="step s"><button data-a="parH" data-d="-1" aria-label="Restar">−</button><input type="text" inputmode="decimal" autocomplete="off" min="0" value="${dec(d.par_h)}" placeholder="0" data-i="parH" aria-label="Horas paralizadas"><button class="plus" data-a="parH" data-d="1" aria-label="Sumar">+</button></div></div>
     <label class="l" for="parm">Motivo</label><input id="parm" class="f" data-i="parM" value="${esc(d.par_m)}" placeholder="Lluvia, falta de frente, orden del supervisor…">
     <span class="xs mut">Anótalo también hoy en el libro de órdenes: solo eso vale ante una multa.</span></div>`;
   h += `<div class="col" style="gap:8px"><label class="l" for="asi">Asiento del libro de órdenes (opcional)</label><input id="asi" class="f" data-i="asiento" value="${esc(d.asiento)}" placeholder="N° de asiento o resumen"></div>
@@ -674,7 +710,9 @@ V.parteVer = () => {
     ${p.nov ? `<span class="sm">${esc(p.nov)}</span>` : ''}${p.asiento ? `<span class="xs mut">Libro de órdenes: ${esc(p.asiento)}</span>` : ''}
     ${p.nfotos ? `<span class="xs mut">${p.nfotos} ${p.nfotos === 1 ? 'foto' : 'fotos'} en la carpeta de la obra</span>` : ''}</div>`;
   h += docParteHtml(p.fecha);
-  return h + '</div></div>';
+  h += '</div>';
+  if (p.estado !== 'Enviado' && S.data.puede.parte && p.fecha >= addDays(hoyLocal(), -15) && p.fecha < hoyLocal()) h += `<div class="foot"><button class="btn p" data-a="enviarAnt" data-f="${p.fecha}">Enviar este parte</button></div>`;
+  return h + '</div>';
 };
 
 /* ---- cierre de semana y PPC ---- */
@@ -760,7 +798,7 @@ V.sol = () => {
       <div id="otroBox" class="${s.otro ? '' : 'hide'} grid2"><input class="f" placeholder="Descripción" value="${esc(s.otro ? s.desc : '')}" data-i="solDesc" aria-label="Descripción"><input class="f" placeholder="Unidad" value="${esc(s.otro ? s.und : '')}" data-i="solUnd" aria-label="Unidad"></div>
     </div>
     <div class="col" style="gap:8px"><span class="l">2. ¿Cuánto?</span>
-      <div class="card" style="padding:10px 12px"><div class="step"><button data-a="solQ" data-d="-1" aria-label="Restar">−</button><input type="number" inputmode="decimal" min="0" value="${num(s.q) || ''}" placeholder="0" data-i="solQ" aria-label="Cantidad"><button class="plus" data-a="solQ" data-d="1" aria-label="Sumar">+</button></div><span class="xs mut center">${esc(s.und || 'unidad')}</span></div>
+      <div class="card" style="padding:10px 12px"><div class="step"><button data-a="solQ" data-d="-1" aria-label="Restar">−</button><input type="text" inputmode="decimal" autocomplete="off" min="0" value="${dec(s.q)}" placeholder="0" data-i="solQ" aria-label="Cantidad"><button class="plus" data-a="solQ" data-d="1" aria-label="Sumar">+</button></div><span class="xs mut center">${esc(s.und || 'unidad')}</span></div>
       <button class="btn o" data-a="solAdd" ${cur ? '' : 'disabled'}>+ Agregar a la lista y pedir otro ${s.tipo === 'Material' ? 'material' : 'equipo'}</button>
       <div id="solLista">${solListaHtml()}</div>
     </div>
@@ -779,11 +817,95 @@ V.recibir = () => {
   if (!o) return V.hoy();
   return `<div class="scr"><div class="top">${back('Cancelar')}<h2>Recibir en obra</h2><span class="sm mut">${esc(o.num)} · ${esc(o.prov)}</span></div><div class="body" style="gap:14px">
     <p class="note n-n">Cuenta y revisa lo que llegó. Anota solo lo que recibes conforme; lo que falta queda pendiente.</p>
-    ${o.items.map((i) => `<div class="card" style="padding:10px 12px"><span class="b sm">${esc(i.desc)}</span><span class="xs mut">Pendiente: ${fmt(i.pend)} ${esc(i.und)}</span><div class="step"><input type="number" inputmode="decimal" min="0" max="${i.pend}" value="${i.pend}" data-rk="${i.k}" aria-label="Recibido de ${esc(i.desc)}"></div></div>`).join('')}
-    <label class="l" for="recFac">Factura o nota de remisión N° (opcional)</label><input id="recFac" class="f" placeholder="Ej. 001234">
-    ${navigator.onLine ? '' : '<p class="note n-warn">Sin señal: la recepción necesita conexión.</p>'}
-  </div><div class="foot"><button class="btn p" data-a="recibir" ${navigator.onLine ? '' : 'disabled'}>Registrar recepción</button></div></div>`;
+    ${o.items.map((i) => `<div class="card" style="padding:10px 12px"><span class="b sm">${esc(i.desc)}</span><span class="xs mut">Pendiente: ${fmt(i.pend)} ${esc(i.und)}</span><div class="step"><input type="text" inputmode="decimal" autocomplete="off" min="0" max="${i.pend}" value="${dec(i.pend, true)}" data-rk="${i.k}" aria-label="Recibido de ${esc(i.desc)}"></div></div>`).join('')}
+    <label class="l" for="recFac">Factura o guía N° (opcional)</label><input id="recFac" class="f" placeholder="Ej. 001234" value="${esc(S.recFac || '')}">
+    <button class="btn w" data-a="fotoRec" style="min-height:56px;border-style:dashed;display:flex;align-items:center;justify-content:center;gap:10px">${CAM} ${S.recFoto ? 'Cambiar foto de la guía o factura' : 'Foto de la guía o factura'}</button>
+    ${S.recFoto ? `<div class="thumbs"><img src="${S.recFoto}" alt="Foto de la guía"></div>` : '<span class="xs mut">La foto permite verificar la entrega a distancia.</span>'}
+    ${navigator.onLine ? '' : '<p class="note n-warn">Sin señal: la recepción queda en el celular y se envía sola cuando haya señal.</p>'}
+    ${S.data.puede.encargado || !S.data.puede.parte ? '<span class="xs mut">La verifica el Residente de la obra.</span>' : '<span class="xs mut">La verifica Almacenes desde la oficina.</span>'}
+  </div><div class="foot"><button class="btn p" data-a="recibir">Registrar recepción</button></div></div>`;
 };
+V.verRec = () => {
+  const r = ((S.data && S.data.porVerificar) || []).find((x) => x.id === S.verSel);
+  if (!r) return V.hoy();
+  return `<div class="scr"><div class="top">${back('Hoy')}<h2>Verificar recepción</h2><span class="sm mut">${esc(r.ocNum)} · ${esc(r.prov)}</span></div><div class="body" style="gap:14px">
+    <p class="note n-n">Recibió ${esc(r.quien)} (${esc(r.rol.toLowerCase())}) el ${fLarga(r.fecha)}. Revisa que lo anotado coincida con lo que hay en la obra y con la guía.</p>
+    <div class="card">${r.items.map((i) => `<div class="between"><span class="sm">${esc(i.desc)}</span><span class="sm b">${fmt(i.q)} ${esc(i.und)}</span></div>`).join('')}${r.fac ? `<span class="xs mut">Guía o factura: ${esc(r.fac)}</span>` : ''}</div>
+    ${r.foto ? `<a class="btn w o" href="${esc(r.foto)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Ver la foto de la guía</a>` : '<span class="xs mut">Sin foto de la guía.</span>'}
+    <label class="l" for="verNota">Si algo no coincide, escribe qué</label><textarea id="verNota" class="f" rows="2" placeholder="Ej. llegaron 2 postes rajados"></textarea>
+  </div><div class="foot"><button class="btn p" data-a="verOk">Todo conforme</button><button class="btn w" data-a="verObs">Observar</button></div></div>`;
+};
+V.desp = () => {
+  const d = ((S.data && S.data.despachos) || []).find((x) => x.id === S.despSel);
+  if (!d) return V.hoy();
+  return `<div class="scr"><div class="top">${back('Hoy')}<h2>Llegó del almacén</h2><span class="sm mut">${esc(d.solNum || d.doc || 'Despacho')} · ${fLarga(d.fecha)}</span></div><div class="body" style="gap:14px">
+    <p class="note n-n">Cuenta lo que llegó a la obra. Si coincide con lo despachado, solo confirma.</p>
+    ${d.items.map((i, k) => `<div class="card" style="padding:10px 12px"><span class="b sm">${esc(i.desc)}</span><span class="xs mut">Despachado: ${fmt(i.q)} ${esc(i.und)}</span><div class="step"><input type="text" inputmode="decimal" autocomplete="off" value="${dec(i.q, true)}" data-dk="${k}" aria-label="Llegó de ${esc(i.desc)}"></div></div>`).join('')}
+    <label class="l" for="despNota">Si llegó distinto, escribe qué pasó</label><textarea id="despNota" class="f" rows="2" placeholder="Ej. 2 bolsas mojadas en el camino"></textarea>
+  </div><div class="foot"><button class="btn p" data-a="despOk">Confirmar llegada</button></div></div>`;
+};
+/* ---------- 4.5 · Rendición de cuentas: el responsable registra sus gastos con la foto y rinde el fondo (también sin señal) ---------- */
+function fondoVivo(f) { return f && (f.estado === 'Abierto' || f.estado === 'Observado'); }
+function gastosLocales(id) { return S.pend.filter((x) => x.kind === 'gasto' && x.fn === 'registrarGasto' && x.args[0] && x.args[0].fondo === id).map((x) => Object.assign({}, x.args[0], { estado: x.err ? 'No se envió' : 'Por enviar', err: x.err, local: true })); }
+function anuladosLocales() { return S.pend.filter((x) => x.fn === 'anularGasto').map((x) => x.args[0]); }
+function gastosFondo(f) { const an = anuladosLocales(); return (f.gastos || []).filter((g) => an.indexOf(g.id) < 0 && !gastosLocales(f.id).some((l) => l.cid && l.cid === g.cid)).concat(gastosLocales(f.id)); }
+function rendPend(id) { return S.pend.find((x) => x.k === 'rend:' + id) || null; }
+function fondoEstado(f) {
+  const rp = rendPend(f.id);
+  if (rp) return ['Rendición por enviar', 't-n'];
+  if (f.estado === 'Observado') return ['Observado', 't-bad'];
+  if (f.estado === 'Rendido') return ['En revisión', 't-n'];
+  if (f.estado === 'Aprobado') return ['Aprobado', 't-ok'];
+  if (f.limite < hoyLocal()) return ['Vencido', 't-bad'];
+  if (f.limite <= addDays(hoyLocal(), 3)) return ['Rinde hasta ' + fCorta(f.limite), 't-warn'];
+  return ['Hasta ' + fCorta(f.limite), 't-n'];
+}
+function fondoTot(f) { const g = gastosFondo(f).reduce((a, x) => a + num(x.monto), 0); return { g: g, s: num(f.monto) - g }; }
+function bsTxt(v) { return 'Bs ' + Number(v || 0).toLocaleString('es-BO', { minimumFractionDigits: 2, maximumFractionDigits: 2 }); }
+function fondosHtml(D) {
+  const L = D.fondos || [];
+  if (!L.length) return '';
+  return `<div class="card"${L.some((f) => f.estado === 'Observado' || (fondoVivo(f) && f.limite < hoyLocal())) ? ' style="border-color:var(--bad)"' : ''}><h3>Mis fondos</h3>
+    ${L.map((f) => { const e = fondoEstado(f); const t = fondoTot(f); return `<button class="sec" data-a="abrirFondo" data-id="${esc(f.id)}" style="padding:10px 0;border:none;border-top:1px solid var(--soft);border-radius:0;background:none"><span class="col" style="flex:1;text-align:left"><span class="b sm">${esc(f.num)} · ${esc(f.motivo)}</span><span class="xs mut">${f.estado === 'Aprobado' ? esc(f.cierre || 'Cerrado') : 'Gastado ' + bsTxt(t.g) + ' de ' + bsTxt(f.monto) + ' · saldo ' + bsTxt(t.s)}</span></span><span class="tag ${e[1]}">${esc(e[0])}</span>${CHEV}</button>`; }).join('')}
+    <span class="xs mut">Registra cada gasto con la foto del comprobante. Los jornales y las planillas no van aquí.</span></div>`;
+}
+V.fondo = () => {
+  const f = ((S.data && S.data.fondos) || []).find((x) => x.id === S.fondoSel);
+  if (!f) return V.hoy();
+  const gs = gastosFondo(f); const t = fondoTot(f); const e = fondoEstado(f); const viv = fondoVivo(f) && !rendPend(f.id);
+  let h = `<div class="scr"><div class="top">${back('Hoy')}<div class="between"><h2>Fondo ${esc(f.num)}</h2><span class="tag ${e[1]}">${esc(e[0])}</span></div><span class="sm mut">${esc(f.motivo)} · entregado el ${fCorta(f.fecha)}</span></div><div class="body" style="gap:12px">`;
+  h += `<div class="card"><div class="between"><span class="sm mut">Entregado</span><span class="b">${bsTxt(f.monto)}</span></div><div class="between"><span class="sm mut">Gastado (${gs.length} gasto${gs.length === 1 ? '' : 's'})</span><span class="b">${bsTxt(t.g)}</span></div>
+    <div class="between"><span class="sm mut">${t.s >= 0 ? 'Saldo a devolver' : 'Se te reembolsa'}</span><span class="b" style="font-size:20px">${bsTxt(Math.abs(t.s))}</span></div>
+    <span class="xs ${fondoVivo(f) && f.limite < hoyLocal() ? 'b" style="color:var(--bad)' : 'mut'}">Rendir hasta el ${fLarga(f.limite)}</span></div>`;
+  if (f.estado === 'Observado' && f.nota) h += `<p class="note n-bad">Observado: ${esc(f.nota)}. Anula el gasto observado y regístralo de nuevo con el respaldo correcto; luego vuelve a rendir.</p>`;
+  if (f.estado === 'Rendido') h += `<p class="note n-n">Lo rendiste: el Administrador revisa los comprobantes. Si observa algo, aparecerá aquí.</p>`;
+  if (f.estado === 'Aprobado') h += `<p class="note n-ok">Aprobado. ${esc(f.cierre || '')}</p>`;
+  h += `<div class="card"><h3>Gastos</h3>${gs.length ? gs.map((g) => `<div class="col" style="gap:4px;padding-top:8px;border-top:1px solid var(--soft)"><div class="between" style="align-items:flex-start"><span class="col"><span class="b sm">${esc(g.concepto)} · ${bsTxt(g.monto)}</span><span class="xs mut">${fCorta(g.fecha)} · ${esc(g.comp)}${g.nro ? ' ' + esc(g.nro) : ''}${g.prov ? ' · ' + esc(g.prov) : ''}</span></span><span class="tag ${g.local ? (g.err ? 't-bad' : 't-n') : g.estado === 'Observado' ? 't-bad' : g.estado === 'Aprobado' ? 't-ok' : 't-n'}">${esc(g.estado || 'Registrado')}</span></div>
+      ${g.obs ? `<span class="xs b" style="color:var(--bad)">${esc(g.obs)}</span>` : ''}${g.err ? `<span class="xs" style="color:var(--bad)">${esc(g.err)}</span>` : ''}
+      ${viv && !g.local ? `<button class="lnk" data-a="anularGasto" data-id="${esc(g.id)}" style="align-self:flex-start">Anular este gasto</button>` : ''}</div>`).join('') : '<span class="sm mut">Todavía no registraste gastos.</span>'}</div>`;
+  if (viv) h += `<button class="btn o w" data-a="nuevoGasto">+ Registrar gasto</button>`;
+  h += `</div>`;
+  if (viv && gs.length) h += `<div class="foot"><button class="btn p" data-a="rendir">Rendir fondo</button></div>`;
+  return h + `</div>`;
+};
+V.gasto = () => {
+  const f = ((S.data && S.data.fondos) || []).find((x) => x.id === S.fondoSel); const g = S.gasto;
+  if (!f || !g) return V.hoy();
+  const R = S.data.rend || { conceptos: [], comps: ['Factura', 'Recibo', 'Sin comprobante'] };
+  const sin = g.comp === 'Sin comprobante';
+  return `<div class="scr"><div class="top">${back('Cancelar', 'fondo')}<h2>Registrar gasto</h2><span class="sm mut">Fondo ${esc(f.num)} · saldo ${bsTxt(fondoTot(f).s)}</span></div><div class="body" style="gap:12px">
+    <label class="l" for="gaConc">Concepto</label><select id="gaConc" class="f" data-i="gas" data-k="concepto"><option value="">Elige…</option>${(R.conceptos || []).map((c) => `<option${g.concepto === c ? ' selected' : ''}>${esc(c)}</option>`).join('')}</select>
+    <div class="grid2"><div class="col"><label class="l" for="gaMonto">Monto Bs</label><input id="gaMonto" class="f" type="text" inputmode="decimal" autocomplete="off" placeholder="0,00" value="${esc(g.monto)}" data-i="gas" data-k="monto" style="font-weight:800;font-size:20px"></div>
+      <div class="col"><label class="l" for="gaFecha">Fecha</label><input id="gaFecha" class="f" type="date" max="${hoyLocal()}" value="${esc(g.fecha)}" data-i="gas" data-k="fecha"></div></div>
+    <span class="l">Comprobante</span><div class="seg">${(R.comps || []).map((c) => `<button class="${g.comp === c ? 'on' + (c === 'Factura' ? ' g' : c === 'Sin comprobante' ? ' r' : '') : ''}" data-a="gComp" data-c="${esc(c)}">${esc(c === 'Sin comprobante' ? 'Ninguno' : c)}</button>`).join('')}</div>
+    ${sin ? '' : `<div class="grid2"><div class="col"><label class="l" for="gaNro">${g.comp === 'Factura' ? 'N° de factura' : 'N° de recibo'}</label><input id="gaNro" class="f" inputmode="numeric" value="${esc(g.nro)}" data-i="gas" data-k="nro"></div>${g.comp === 'Factura' ? `<div class="col"><label class="l" for="gaNit">NIT</label><input id="gaNit" class="f" inputmode="numeric" value="${esc(g.nit)}" data-i="gas" data-k="nit"></div>` : '<div></div>'}</div>`}
+    <label class="l" for="gaProv">${sin ? 'A quién se pagó' : 'Proveedor'}</label><input id="gaProv" class="f" value="${esc(g.prov)}" data-i="gas" data-k="prov" placeholder="Nombre del negocio o persona">
+    <label class="l" for="gaDet">${sin ? 'Qué se pagó y por qué no hay comprobante' : 'Detalle (opcional)'}</label><textarea id="gaDet" class="f" rows="2" data-i="gas" data-k="det" placeholder="${sin ? 'Ej. flete con camión de un comunario, no emite recibo' : 'Escribe o dicta'}">${esc(g.det)}</textarea>
+    ${sin ? '<p class="note n-warn">Sin comprobante el gasto puede ser observado. Pide recibo siempre que puedas.</p>' : `<button class="btn w" data-a="fotoGas" style="min-height:56px;border-style:dashed;display:flex;align-items:center;justify-content:center;gap:10px">${CAM} ${g.foto ? 'Cambiar la foto' : 'Foto de la ' + (g.comp === 'Factura' ? 'factura' : 'recibo').replace('la recibo', 'el recibo')}</button>${g.foto ? `<div class="thumbs"><img src="${g.foto}" alt="Foto del comprobante"></div>` : ''}`}
+    ${navigator.onLine ? '' : '<p class="note n-warn">Sin señal: el gasto queda en el celular y se envía solo cuando haya señal.</p>'}
+  </div><div class="foot"><button class="btn p" data-a="guardarGasto">Registrar gasto</button></div></div>`;
+};
+function leerGasto() { document.querySelectorAll('[data-i="gas"]').forEach((el) => { S.gasto[el.dataset.k] = el.value; }); }
 V.solok = () => {
   const s = S.solOk; const mat = s.tipo === 'Material';
   const pasos = mat ? ['Almacén revisa el stock: si hay, lo reserva para esa fecha.', 'Si no hay, Adquisiciones lo compra con la fecha de uso (acuerdo marco o cotizaciones).', 'Llega a obra para la fecha de uso y lo recibes con tu firma.']
@@ -834,7 +956,7 @@ V.prog = () => {
       <div class="between" style="align-items:flex-start"><span class="col"><span class="b">${esc(p.nombre)}</span><span class="xs mut">${esc([p.item ? 'Ítem ' + p.item : '', p.lugar, p.cuadrilla].filter(Boolean).join(' · '))}</span></span>${tag}</div>
       <div class="conds">${P.cond.map((c) => { const ok = p.cond[c[0]] !== false; return `<button class="chip sm ${ok ? 'c-ok' : 'c-no'}" ${can ? '' : 'disabled'} data-a="cond" data-id="${p.id}" data-k="${c[0]}" data-v="${ok ? 0 : 1}" aria-pressed="${ok}" title="${esc(c[1])}: ${ok ? 'lista' : 'falta'}">${esc(COND_CORTO[c[0]] || c[1])}</button>`; }).join('')}</div>
       ${p.restr.map((r) => `<div class="note n-warn between"><span>Falta ${esc(r.cond.toLowerCase())} → ${esc(r.resp)}</span><span>hasta ${fCorta(r.limite)}</span></div>`).join('')}
-      <div class="row"><label class="sm mut" style="flex:1" for="m_${p.id}">Meta de la semana</label><input id="m_${p.id}" class="f" style="max-width:110px;text-align:right;font-weight:800" type="number" inputmode="decimal" min="0" value="${num(p.meta) || ''}" placeholder="0" ${can ? '' : 'disabled'} data-i="meta" data-id="${p.id}"><span class="sm b" style="min-width:44px">${esc(p.unidad)}</span></div>
+      <div class="row"><label class="sm mut" style="flex:1" for="m_${p.id}">Meta de la semana</label><input id="m_${p.id}" class="f" style="max-width:110px;text-align:right;font-weight:800" type="text" inputmode="decimal" autocomplete="off" min="0" value="${dec(p.meta)}" placeholder="0" ${can ? '' : 'disabled'} data-i="meta" data-id="${p.id}"><span class="sm b" style="min-width:44px">${esc(p.unidad)}</span></div>
       <div class="seg">${[['Comprometida', 'Comprometer'], ['Reserva', 'Reserva'], ['No entra', 'No entra']].map((m) => `<button class="${p.modo === m[0] ? 'on' + (m[0] === 'Comprometida' ? ' g' : '') : ''}" ${can && p.libre ? '' : 'disabled'} data-a="modo" data-id="${p.id}" data-m="${m[0]}">${m[1]}</button>`).join('')}</div>
       ${(p.modo === 'Comprometida' || p.modo === 'Reserva') && (num(p.hecho) || p.causa || p.comprometido) ? `<div class="bar"><i class="${p.cumplida ? 'g' : ''}" style="width:${num(p.meta) > 0 ? Math.min(100, Math.round(num(p.hecho) / num(p.meta) * 100)) : 0}%"></i></div><span class="xs mut">Avance de la semana: ${fmt(p.hecho)} de ${fmt(p.meta)} ${esc(p.unidad)}${p.cumplida ? ' · cumplida' : ''}${p.causa && !p.cumplida ? ' · causa: ' + esc(causaTxt(p.causa)) : ''}</span>` : ''}
     </div>`;
@@ -856,8 +978,8 @@ V.progAdd = () => {
       <label class="l" for="tn">Tarea</label><input id="tn" class="f" data-i="nv" data-k="nombre" value="${esc(n.nombre)}" placeholder="Ej. Vaciado de losa">
       <label class="l" for="tl">Lugar o frente</label><input id="tl" class="f" data-i="nv" data-k="lugar" value="${esc(n.lugar)}" placeholder="Ej. Nivel 2 · ejes A–C">
       <span class="l">Unidad</span><div class="chips">${UNIDADES.map((u) => `<button class="chip sm ${n.unidad === u ? 'on' : ''}" data-a="nvU" data-u="${u}">${u}</button>`).join('')}</div>
-      <div class="grid2"><div class="col"><label class="xs mut" for="tc">Cantidad total</label><input id="tc" class="f" type="number" inputmode="decimal" data-i="nv" data-k="cantidad" value="${esc(n.cantidad)}"></div>
-      <div class="col"><label class="xs mut" for="tm">Meta de esta semana</label><input id="tm" class="f" type="number" inputmode="decimal" data-i="nv" data-k="meta" value="${esc(n.meta)}"></div></div>
+      <div class="grid2"><div class="col"><label class="xs mut" for="tc">Cantidad total</label><input id="tc" class="f" type="text" inputmode="decimal" autocomplete="off" data-i="nv" data-k="cantidad" value="${esc(n.cantidad)}"></div>
+      <div class="col"><label class="xs mut" for="tm">Meta de esta semana</label><input id="tm" class="f" type="text" inputmode="decimal" autocomplete="off" data-i="nv" data-k="meta" value="${esc(n.meta)}"></div></div>
       <div class="grid2"><div class="col"><label class="xs mut" for="tq">Cuadrilla</label><input id="tq" class="f" data-i="nv" data-k="cuadrilla" value="${esc(n.cuadrilla)}"></div>
       <div class="col"><label class="xs mut" for="ti">Ítem del presupuesto</label><input id="ti" class="f" data-i="nv" data-k="item" value="${esc(n.item)}"></div></div>
       <button class="btn d" data-a="crearTarea">Crear y agregar a la semana</button>
@@ -867,7 +989,7 @@ V.progAdd = () => {
 function tarList(list) {
   if (!list.length) return '<p class="sm mut" style="padding:12px 0">No hay tareas para agregar. Crea una abajo.</p>';
   return list.map((t) => `<div class="li"><span class="col" style="flex:1"><span class="b sm">${esc(t.nombre)}</span><span class="xs mut">${esc([t.item, t.lugar, fmt(t.cantidad) + ' ' + t.unidad].filter(Boolean).join(' · '))}</span></span>
-    <input class="f" style="max-width:84px;text-align:right" type="number" inputmode="decimal" placeholder="meta" id="mt_${t.id}" aria-label="Meta de la semana para ${esc(t.nombre)}">
+    <input class="f" style="max-width:84px;text-align:right" type="text" inputmode="decimal" autocomplete="off" placeholder="meta" id="mt_${t.id}" aria-label="Meta de la semana para ${esc(t.nombre)}">
     <button class="btn sm d" data-a="addTarea" data-id="${t.id}">Agregar</button></div>`).join('');
 }
 
@@ -899,17 +1021,29 @@ function render() {
   if (v === 'ppc' && !S.ppc) S.view = 'hoy';
   if ((v === 'partes' || v === 'parteVer') && !S.hist) S.view = 'hoy';
   if (v === 'sol' && !S.sol) S.view = 'hoy';
+  if (v === 'gasto' && !S.gasto) S.view = 'hoy';
   const app = $('#app');
   app.className = S.view === 'prog' || S.view === 'progAdd' || S.view === 'ppc' ? 'wide' : '';
   const keepScroll = S.view === S.prev;
   const y = window.scrollY;
+  // 4.4.3: si se estaba escribiendo en un campo, vuelve a ese mismo campo después de redibujar
+  // (antes, al pasar de una cantidad a la siguiente, el segundo campo perdía el foco).
+  const ae = document.activeElement; let fk = null, sel = null;
+  if (keepScroll && ae && app.contains(ae) && /^(INPUT|TEXTAREA|SELECT)$/.test(ae.tagName)) {
+    fk = ae.id ? '#' + CSS.escape(ae.id) : ['i', 'id', 'c', 'k', 'rk'].filter((k) => ae.dataset[k] != null).map((k) => '[data-' + k + '="' + CSS.escape(ae.dataset[k]) + '"]').join('');
+    try { sel = [ae.selectionStart, ae.selectionEnd]; } catch (e) { }
+    sel = { v: ae.value, s: sel };
+  }
   app.innerHTML = V[S.view]();
   if (keepScroll) window.scrollTo(0, y); else window.scrollTo(0, 0);
+  if (fk) { const el = app.querySelector(fk); if (el) { if (sel && el.tagName !== 'SELECT' && el.value !== sel.v) el.value = sel.v; el.focus({ preventScroll: true }); try { el.setSelectionRange(el.value.length, el.value.length); } catch (e) { } } }
   S.prev = S.view;
 }
 
 /* ---------- acciones ---------- */
 function upd(fn) { const d = draft(); fn(d); marcar(d, SECC_DE_VISTA[S.view]); saveDraft(d); render(); }
+// Para cambios que vienen de escribir en un campo: guarda ya, y redibuja cuando el foco ya pasó al campo siguiente.
+function updCampo(fn) { const d = draft(); fn(d); marcar(d, SECC_DE_VISTA[S.view]); saveDraft(d); setTimeout(render, 0); }
 const A = {
   go: (el) => { S.view = el.dataset.v; render(); },
   reload: () => cargar(),
@@ -1019,17 +1153,60 @@ const A = {
   abrirPPC: (el) => abrirPPC(el.dataset.v),
   abrirPartes: () => abrirPartes(),
   verParte: (el) => { S.histSel = el.dataset.id; S.view = 'parteVer'; render(); },
-  abrirRec: (el) => { S.recSel = el.dataset.id; S.view = 'recibir'; render(); },
+  enviarAnt: (el) => { const f = el.dataset.f; const b = ((S.data && S.data.borradores) || []).find((x) => x.fecha === f); const h = (S.hist || []).find((x) => x.fecha === f); enviarAnterior(f, (b && b.secciones) || (h && h.secciones) || []); },
+  abrirFondo: (el) => { S.fondoSel = el.dataset.id; S.view = 'fondo'; render(); window.scrollTo(0, 0); },
+  nuevoGasto: () => { const f = (S.data.fondos || []).find((x) => x.id === S.fondoSel); S.gasto = { fecha: hoyLocal(), concepto: '', monto: '', comp: 'Factura', nro: '', nit: '', prov: '', det: '', foto: null, obra: (f && f.obra) || S.obra || '' }; S.view = 'gasto'; render(); window.scrollTo(0, 0); },
+  gComp: (el) => { leerGasto(); S.gasto.comp = el.dataset.c; render(); },
+  fotoGas: () => { leerGasto(); const f = $('#camGas'); f.value = ''; f.click(); },
+  guardarGasto: async () => {
+    leerGasto(); const g = S.gasto; const f = (S.data.fondos || []).find((x) => x.id === S.fondoSel); if (!f || !g) return;
+    const monto = num(g.monto);
+    if (!g.concepto) return toast('Elige el concepto del gasto.', true);
+    if (!(monto > 0)) return toast('Escribe el monto del gasto.', true);
+    if (!g.fecha || g.fecha > hoyLocal()) return toast('Revisa la fecha del gasto.', true);
+    if (g.comp === 'Factura' && !String(g.nro).trim()) return toast('Escribe el número de la factura.', true);
+    if (g.comp !== 'Sin comprobante' && !g.foto) return toast('Toma la foto del comprobante.', true);
+    if (g.comp === 'Sin comprobante' && String(g.det).trim().length < 10) return toast('Describe qué se pagó, a quién y por qué no hay comprobante.', true);
+    const cid = newId(); const sin = g.comp === 'Sin comprobante';
+    const args = { cid: cid, fondo: f.id, fecha: g.fecha, obra: g.obra, concepto: g.concepto, monto: monto, comp: g.comp, nro: sin ? '' : String(g.nro).trim(), nit: g.comp === 'Factura' ? String(g.nit).trim() : '',
+      prov: String(g.prov).trim(), det: String(g.det).trim(), foto: !sin && g.foto ? { b64: g.foto, type: 'image/jpeg' } : null };
+    await enqueue('gasto:' + cid, 'registrarGasto', [args], g.concepto + ' · ' + bsTxt(monto) + ' (' + f.num + ')', 'gasto');
+    S.gasto = null; S.view = 'fondo'; render();
+    toast(navigator.onLine ? 'Gasto registrado.' : 'Guardado en el celular. Se enviará cuando haya señal.');
+  },
+  anularGasto: async (el) => {
+    const m = prompt('¿Por qué anulas este gasto? (por ejemplo: lo registré dos veces, lo reemplazo por el recibo correcto)');
+    if (m === null) return; if (m.trim().length < 5) return toast('Escribe el motivo (al menos 5 letras).', true);
+    await enqueue('anulg:' + el.dataset.id, 'anularGasto', [el.dataset.id, m.trim()], 'Anular gasto', 'gasto');
+    render(); toast(navigator.onLine ? 'Gasto anulado.' : 'Se anulará cuando haya señal.');
+  },
+  rendir: async () => {
+    const f = (S.data.fondos || []).find((x) => x.id === S.fondoSel); if (!f) return;
+    const t = fondoTot(f); const n = gastosFondo(f).length;
+    if (!confirm('¿Rendir el fondo ' + f.num + '?\n\n' + n + ' gasto' + (n === 1 ? '' : 's') + ' por ' + bsTxt(t.g) + ' de ' + bsTxt(f.monto) + '.\n' + (t.s > 0.004 ? 'Debes devolver ' + bsTxt(t.s) + '.' : t.s < -0.004 ? 'Se te reembolsará ' + bsTxt(-t.s) + '.' : 'El fondo queda cuadrado.') + '\n\nDespués ya no podrás agregar gastos.')) return;
+    await enqueue('rend:' + f.id, 'rendirFondo', [f.id], 'Rendición ' + f.num, 'rend');
+    render(); toast(navigator.onLine ? 'Fondo rendido: el Administrador lo revisará.' : 'Guardado en el celular. Se enviará cuando haya señal.');
+  },
+  abrirRec: (el) => { S.recSel = el.dataset.id; S.recFoto = null; S.recFac = ''; S.view = 'recibir'; render(); },
+  // 4.4.3 → 4.5: la recepción también funciona sin señal; se envía sola y una sola vez (con su ID del celular).
   recibir: async () => {
     const recs = Array.from(document.querySelectorAll('[data-rk]')).map((i) => ({ k: Number(i.dataset.rk), q: num(i.value) })).filter((x) => x.q > 0);
     if (!recs.length) return toast('Anota al menos una cantidad recibida.', true);
     const over = Array.from(document.querySelectorAll('[data-rk]')).some((i) => num(i.value) > num(i.max) + 1e-9);
     if (over) return toast('No puedes recibir más de lo pendiente.', true);
-    try {
-      await withBusy(() => api('recibirObra', S.recSel, ($('#recFac') || {}).value || '', recs));
-      toast('Recepción registrada: entrada y salida a obra en el kardex.'); S.view = 'hoy'; await cargar();
-    } catch (x) { toast(x.net ? 'Sin conexión: la recepción necesita señal.' : x.message, true); }
+    const o = (S.data.porRecibir || []).find((x) => x.id === S.recSel); const cid = newId();
+    const foto = S.recFoto ? { b64: S.recFoto, type: 'image/jpeg' } : null;
+    await enqueue('rec:' + S.recSel + ':' + cid, 'recibirObra', [S.recSel, ($('#recFac') || {}).value || '', recs, foto, cid], 'Recepción ' + (o ? o.num : ''), 'rec');
+    if (o) { recs.forEach((r) => { const it = o.items.find((i) => i.k === r.k); if (it) it.pend = Math.max(0, it.pend - r.q); }); o.items = o.items.filter((i) => i.pend > 1e-9); if (!o.items.length) S.data.porRecibir = S.data.porRecibir.filter((x) => x.id !== o.id); }
+    S.recFoto = null; S.recFac = ''; S.view = 'hoy'; render();
+    toast(navigator.onLine ? 'Recepción registrada. Queda por verificar.' : 'Guardada en el celular. Se enviará cuando haya señal.');
   },
+  fotoRec: () => { S.recFac = ($('#recFac') || {}).value || ''; const f = $('#camRec'); f.value = ''; f.click(); },
+  verRec: (el) => { S.verSel = el.dataset.id; S.view = 'verRec'; render(); },
+  verOk: () => verificar(true),
+  verObs: () => verificar(false),
+  abrirDesp: (el) => { S.despSel = el.dataset.id; S.view = 'desp'; render(); },
+  despOk: () => confirmarDesp(),
   ppcSem: (el) => abrirPPC('', el.dataset.l),
   ppcCausa: async (el) => {
     if (!navigator.onLine) return toast('Sin señal: la causa se guarda solo con conexión.', true);
@@ -1106,16 +1283,17 @@ document.addEventListener('input', (e) => {
   else if (k === 'solObs') { S.sol.obs = v; }
   else if (k === 'progQ') { S.progQ = v; const P = S.prog; const sem = P.semanas.find((w) => w.lunes === S.progSem); const en = P.plan.filter((p) => p.semana === sem.lunes).map((p) => p.tarea); const q = v.trim().toLowerCase(); $('#tarList').innerHTML = tarList(P.tareas.filter((t) => en.indexOf(t.id) < 0 && (!q || (t.nombre + ' ' + t.lugar + ' ' + t.item).toLowerCase().indexOf(q) >= 0))); }
   else if (k === 'nv') { S.nueva[el.dataset.k] = v; }
+  else if (k === 'gas') { if (S.gasto) S.gasto[el.dataset.k] = v; }
 });
 function refreshSolBtn() { const b = document.querySelector('[data-a="enviarSol"]'); const s = S.sol; if (!b || !s) return; b.disabled = !solListo(); b.textContent = solBtnTxt(); const a = document.querySelector('[data-a="solAdd"]'); if (a) a.disabled = !solActual(); }
 document.addEventListener('change', (e) => {
   const el = e.target; const k = el.dataset && el.dataset.i; if (!k) return;
   const v = el.value;
   if (k === 'obra') { S.obra = v; LS.set('obra', v); const c = LS.get('inicio:' + v, null); S.data = c ? c.d : S.data; cargar(); }
-  else if (k === 'avq') upd((d) => { const a = d.avance[el.dataset.id] || (d.avance[el.dataset.id] = { q: 0, causa: '' }); a.q = Math.max(0, num(v)); if (a.q > 0) a.causa = ''; });
-  else if (k === 'per') upd((d) => { d.personal[el.dataset.c] = Math.max(0, Math.round(num(v))); });
-  else if (k === 'eqH') upd((d) => { const x = d.equipos[el.dataset.id] || { est: 'Trabajó', ht: 0 }; x.ht = Math.min(24, Math.max(0, num(v))); d.equipos[el.dataset.id] = x; });
-  else if (k === 'parH') upd((d) => { d.par_h = Math.max(0, num(v)); });
+  else if (k === 'avq') updCampo((d) => { const a = d.avance[el.dataset.id] || (d.avance[el.dataset.id] = { q: 0, causa: '' }); a.q = Math.max(0, num(v)); if (a.q > 0) a.causa = ''; });
+  else if (k === 'per') updCampo((d) => { d.personal[el.dataset.c] = Math.max(0, Math.round(num(v))); });
+  else if (k === 'eqH') updCampo((d) => { const x = d.equipos[el.dataset.id] || { est: 'Trabajó', ht: 0 }; x.ht = Math.min(24, Math.max(0, num(v))); d.equipos[el.dataset.id] = x; });
+  else if (k === 'parH') updCampo((d) => { d.par_h = Math.max(0, num(v)); });
   else if (k === 'solQ') { S.sol.q = Math.max(0, num(v)); refreshSolBtn(); }
   else if (k === 'solReq') { if (v) { S.sol.req = v; render(); } }
   else if (k === 'meta') { const p = S.prog.plan.find((x) => x.id === el.dataset.id); if (p && num(v) !== num(p.meta)) progCall('setModo', p.id, p.modo, num(v)); }
@@ -1138,6 +1316,33 @@ function comprimir(file) {
     img.onerror = () => { URL.revokeObjectURL(url); rej(new Error('No se pudo leer la foto.')); };
     img.src = url;
   });
+}
+$('#camGas').addEventListener('change', async (e) => {
+  const f = (e.target.files || [])[0]; if (!f || !S.gasto) return;
+  try { S.gasto.foto = await comprimir(f); render(); } catch (x) { toast(x.message, true); }
+});
+$('#camRec').addEventListener('change', async (e) => {
+  const f = (e.target.files || [])[0]; if (!f) return;
+  try { S.recFoto = await comprimir(f); render(); } catch (x) { toast(x.message, true); }
+});
+/* ---------- 4.5 · verificación de recepciones y confirmación de lo que llega del almacén ---------- */
+async function verificar(ok) {
+  const r = ((S.data && S.data.porVerificar) || []).find((x) => x.id === S.verSel); if (!r) return;
+  const nota = (($('#verNota') || {}).value || '').trim();
+  if (!ok && nota.length < 5) return toast('Escribe qué no coincide (cantidad, calidad, guía…).', true);
+  await enqueue('ver:' + r.id, 'verificarRecepcion', [r.id, ok, nota], 'Verificación ' + r.ocNum, 'ver');
+  S.data.porVerificar = S.data.porVerificar.filter((x) => x.id !== r.id); S.view = 'hoy'; render();
+  toast(ok ? 'Recepción verificada.' : 'Recepción observada: Compras lo verá antes de pagar.');
+}
+async function confirmarDesp() {
+  const d = ((S.data && S.data.despachos) || []).find((x) => x.id === S.despSel); if (!d) return;
+  const items = d.items.map((i, k) => ({ cod: i.cod, q: num(($('[data-dk="' + k + '"]') || {}).value) }));
+  const igual = items.every((x, k) => Math.abs(x.q - d.items[k].q) < 1e-9);
+  const nota = (($('#despNota') || {}).value || '').trim();
+  if (!igual && nota.length < 5) return toast('Lo que llegó no coincide con lo despachado: escribe qué pasó.', true);
+  await enqueue('desp:' + d.id, 'confirmarDespacho', [d.id, items, nota], 'Llegada de ' + (d.solNum || d.doc || 'despacho'), 'desp');
+  S.data.despachos = S.data.despachos.filter((x) => x.id !== d.id); S.view = 'hoy'; render();
+  toast(igual ? 'Llegada confirmada.' : 'Diferencia registrada: Almacenes la verá.');
 }
 $('#cam').addEventListener('change', async (e) => {
   const files = Array.from(e.target.files || []); if (!files.length) return;
