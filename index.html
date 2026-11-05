@@ -123,7 +123,7 @@ label.l{font-size:15px;font-weight:700}
 <input type="file" id="camGas" accept="image/*" capture="environment" class="hide">
 <script>
 'use strict';
-const VERSION = '4.5';
+const VERSION = '4.5.1';
 const CHECK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L19 7"/></svg>';
 const CHEV = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A847A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 const BACKI = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
@@ -854,7 +854,7 @@ function fondoEstado(f) {
   const rp = rendPend(f.id);
   if (rp) return ['Rendición por enviar', 't-n'];
   if (f.estado === 'Observado') return ['Observado', 't-bad'];
-  if (f.estado === 'Rendido') return ['En revisión', 't-n'];
+  if (f.estado === 'Rendido' || f.estado === 'Revisado') return ['En revisión', 't-n'];
   if (f.estado === 'Aprobado') return ['Aprobado', 't-ok'];
   if (f.limite < hoyLocal()) return ['Vencido', 't-bad'];
   if (f.limite <= addDays(hoyLocal(), 3)) return ['Rinde hasta ' + fCorta(f.limite), 't-warn'];
@@ -878,7 +878,7 @@ V.fondo = () => {
     <div class="between"><span class="sm mut">${t.s >= 0 ? 'Saldo a devolver' : 'Se te reembolsa'}</span><span class="b" style="font-size:20px">${bsTxt(Math.abs(t.s))}</span></div>
     <span class="xs ${fondoVivo(f) && f.limite < hoyLocal() ? 'b" style="color:var(--bad)' : 'mut'}">Rendir hasta el ${fLarga(f.limite)}</span></div>`;
   if (f.estado === 'Observado' && f.nota) h += `<p class="note n-bad">Observado: ${esc(f.nota)}. Anula el gasto observado y regístralo de nuevo con el respaldo correcto; luego vuelve a rendir.</p>`;
-  if (f.estado === 'Rendido') h += `<p class="note n-n">Lo rendiste: el Administrador revisa los comprobantes. Si observa algo, aparecerá aquí.</p>`;
+  if (f.estado === 'Rendido' || f.estado === 'Revisado') h += `<p class="note n-n">${f.estado === 'Revisado' ? 'El Administrador ya revisó los comprobantes; falta la aprobación de Gerencia.' : 'Lo rendiste: el Administrador revisa los comprobantes.'} Si observan algo, aparecerá aquí.</p>`;
   if (f.estado === 'Aprobado') h += `<p class="note n-ok">Aprobado. ${esc(f.cierre || '')}</p>`;
   h += `<div class="card"><h3>Gastos</h3>${gs.length ? gs.map((g) => `<div class="col" style="gap:4px;padding-top:8px;border-top:1px solid var(--soft)"><div class="between" style="align-items:flex-start"><span class="col"><span class="b sm">${esc(g.concepto)} · ${bsTxt(g.monto)}</span><span class="xs mut">${fCorta(g.fecha)} · ${esc(g.comp)}${g.nro ? ' ' + esc(g.nro) : ''}${g.prov ? ' · ' + esc(g.prov) : ''}</span></span><span class="tag ${g.local ? (g.err ? 't-bad' : 't-n') : g.estado === 'Observado' ? 't-bad' : g.estado === 'Aprobado' ? 't-ok' : 't-n'}">${esc(g.estado || 'Registrado')}</span></div>
       ${g.obs ? `<span class="xs b" style="color:var(--bad)">${esc(g.obs)}</span>` : ''}${g.err ? `<span class="xs" style="color:var(--bad)">${esc(g.err)}</span>` : ''}
