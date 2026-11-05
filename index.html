@@ -121,9 +121,10 @@ label.l{font-size:15px;font-weight:700}
 <input type="file" id="cam" accept="image/*" capture="environment" multiple class="hide">
 <input type="file" id="camRec" accept="image/*" capture="environment" class="hide">
 <input type="file" id="camGas" accept="image/*" capture="environment" class="hide">
+<input type="file" id="camF" accept="image/*" capture="environment" class="hide">
 <script>
 'use strict';
-const VERSION = '4.5.1';
+const VERSION = '4.6';
 const CHECK = '<svg width="18" height="18" viewBox="0 0 24 24" fill="none" stroke="#fff" stroke-width="3" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M5 12l5 5L19 7"/></svg>';
 const CHEV = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="#8A847A" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M9 6l6 6-6 6"/></svg>';
 const BACKI = '<svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2.5" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true"><path d="M15 6l-6 6 6 6"/></svg>';
@@ -252,7 +253,7 @@ async function enqueue(k, fn, args, label, kind) {
   await contarPend();
   sync();
 }
-const PRIO = { sol: 0, parte: 1, rec: 1, ver: 2, desp: 2, gasto: 2, rend: 3, foto: 4 };
+const PRIO = { sol: 0, parte: 1, rec: 1, sal: 1, pveh: 1, tarea: 1, ver: 2, desp: 2, gasto: 2, reg: 2, falla: 2, rend: 3, foto: 4 };
 async function sync() {
   // Si ya hay un envío en curso, se anota y se repite al terminar (antes esperaba hasta 30 s y,
   // si la app se cerraba en ese tiempo, el parte quedaba en el celular y el sistema lo mostraba como borrador).
@@ -503,8 +504,11 @@ V.hoy = () => {
       <span class="sm mut">${pend ? (pend.err ? 'No llegó al sistema: ' + esc(pend.err) + '. Toca el aviso de arriba para reintentar.' : 'Está en el celular y todavía no llegó al sistema: la oficina lo ve como borrador. Deja la app abierta con señal hasta que diga "Todo enviado".') : enviado ? 'Puedes corregirlo durante el día; cada cambio queda registrado.' : n === 4 ? 'Todo listo. Revisa y envía.' : 'Unos 5 minutos. Puedes ir llenando durante el día.'}</span></div>`;
   }
   if (P.parte && S.obra) h += borradoresHtml(D);
+  h += transpHtml(D, P);
   h += fondosHtml(D);
+  h += tareasHtml(D);
   if (P.solicitar && S.obra) h += `<div class="grid2"><button class="btn o" data-a="nuevaSol" data-t="Material">+ Pedir material</button><button class="btn o" data-a="nuevaSol" data-t="Equipo">+ Pedir equipo</button></div>`;
+  if (P.pedirVeh && D.obras.length) h += `<button class="btn o w" data-a="nuevoPv">+ Pedir vehículo</button>` + pedidosHtml(D);
   if (P.parte && S.obra) h += `<div class="col" style="gap:8px">${seccionesHtml(D, draft())}</div>`;
   if (!P.parte && P.verParte && S.obra) h += avanceSemanaHtml(D);
   if ((P.verParte || P.parte) && S.obra) h += `<button class="sec" data-a="abrirPartes"><span class="col" style="flex:1"><span class="b" style="font-size:17px">Partes anteriores</span><span class="sm mut">Qué se ejecutó, qué no y por qué, día por día</span></span>${CHEV}</button>`;
@@ -519,7 +523,7 @@ V.hoy = () => {
   if (P.solicitar || sols.length) h += `<div class="card"><h3>Mis solicitudes</h3>${sols.length ? sols.slice(0, 8).map((s) => `<div class="between" style="align-items:flex-start"><span class="col"><span class="sm b">${esc(s.txt)}</span><span class="xs mut">${esc(s.num)} · uso ${s.req ? fCorta(s.req) : '—'}</span></span><span class="tag ${solTone(s.estado)}">${esc(s.estado)}</span></div>`).join('') : '<span class="sm mut">Todavía no hay solicitudes de esta obra.</span>'}</div>`;
   if ((D.restricciones || []).length) h += `<div class="card"><h3>Restricciones abiertas</h3>${D.restricciones.slice(0, 6).map((r) => `<div class="col"><span class="sm b">Falta ${esc(r.cond.toLowerCase())} · ${esc(r.tarea)}</span><span class="xs ${r.limite <= addDays(hoyLocal(), 1) ? 'b" style="color:var(--warn)' : 'mut'}">${esc(r.resp)} · hasta el ${fCorta(r.limite)}</span></div>`).join('')}</div>`;
   if (P.encargado && !P.parte && !(D.porRecibir || []).length && !(D.despachos || []).length) h += `<div class="card"><h3>Encargado de recepción</h3><p class="sm mut">No hay entregas pendientes en esta obra. Cuando llegue un proveedor o un despacho del almacén aparecerá aquí.</p></div>`;
-  if (!P.parte && !P.solicitar && !P.verProg && !P.prog && !P.recibir && !(D.fondos || []).length) h += `<div class="card"><h3>Tu cargo usa el sistema anterior</h3><p class="sm mut">Por ahora, Compras, Almacén, Transporte y Seguridad siguen en el sistema anterior. Esta app tendrá sus pantallas en la siguiente etapa.</p><a class="btn w" href="${esc(S.api)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Abrir el sistema anterior</a></div>`;
+  if (!P.parte && !P.solicitar && !P.verProg && !P.prog && !P.recibir && !P.transp && !(D.fondos || []).length && !(D.tareas || []).length) h += `<div class="card"><h3>Tu cargo usa el sistema anterior</h3><p class="sm mut">Por ahora, Compras, Almacén, Transporte y Seguridad siguen en el sistema anterior. Esta app tendrá sus pantallas en la siguiente etapa.</p><a class="btn w" href="${esc(S.api)}" target="_blank" rel="noopener" style="display:flex;align-items:center;justify-content:center;text-decoration:none">Abrir el sistema anterior</a></div>`;
   h += `</div>`;
   if (P.parte && S.obra) h += `<div class="foot"><button class="btn p" data-a="go" data-v="cierre">${draft().estado === 'Enviado' ? 'Ver el parte enviado' : 'Revisar y enviar parte'}</button></div>`;
   return h + `</div>`;
@@ -844,6 +848,168 @@ V.desp = () => {
     <label class="l" for="despNota">Si llegó distinto, escribe qué pasó</label><textarea id="despNota" class="f" rows="2" placeholder="Ej. 2 bolsas mojadas en el camino"></textarea>
   </div><div class="foot"><button class="btn p" data-a="despOk">Confirmar llegada</button></div></div>`;
 };
+/* ---------- 4.6 · Transporte para el chofer, pedido de vehículo y tareas de oficina (todo funciona sin señal) ---------- */
+const segF = (k, ops, cls) => `<div class="seg">${ops.map((o) => { const v = Array.isArray(o) ? o[0] : o, l = Array.isArray(o) ? o[1] : o; return `<button class="${S.f[k] === v ? 'on' + (cls && cls[v] ? ' ' + cls[v] : '') : ''}" data-a="fset" data-k="${esc(k)}" data-v="${esc(v)}">${esc(l)}</button>`; }).join('')}</div>`;
+const inF = (k, lab, extra) => `<label class="l" for="f_${k}">${lab}</label><input id="f_${k}" class="f" data-i="f" data-k="${k}" value="${esc(S.f[k] == null ? '' : S.f[k])}" ${extra || ''}>`;
+const fotoF = (lab) => `<button class="btn w" data-a="fotoF" style="min-height:52px;border-style:dashed;display:flex;align-items:center;justify-content:center;gap:10px">${CAM} ${S.f.foto ? 'Cambiar la foto' : esc(lab)}</button>${S.f.foto ? `<div class="thumbs"><img src="${S.f.foto}" alt="Foto"></div>` : ''}`;
+function vehDe(id) { const T = S.data && S.data.transp; return T ? T.veh.find((v) => v.id === id) || null : null; }
+function regPend(id) { return S.pend.some((x) => x.kind === 'reg' && x.args[0] === id); }
+function viajeAbierto() {
+  const T = S.data && S.data.transp; if (!T) return null;
+  if (T.abierto && !regPend(T.abierto.id) && !(T.abierto.cid && regPend(T.abierto.cid))) return T.abierto;
+  const loc = S.pend.filter((x) => x.kind === 'sal' && x.args[0].salOk).map((x) => x.args[0]).reverse().find((a) => !regPend(a.cid));
+  return loc ? { id: loc.cid, local: true, veh: loc.veh, obra: loc.obra, ori: loc.ori, des: loc.des, hsal: '', fallas: [] } : null;
+}
+function transpHtml(D, P) {
+  if (!P.transp || !D.transp) return '';
+  const T = D.transp, ab = viajeAbierto();
+  let h = '';
+  if (ab) {
+    const v = vehDe(ab.veh) || { nombre: ab.veh };
+    const fl = (ab.fallas || []).length + S.pend.filter((x) => x.kind === 'falla' && x.args[0].viaje === ab.id).length;
+    h += `<div class="hero"><div class="between"><span class="b">Viaje en curso</span><span class="tag t-n">${ab.local ? 'Por enviar' : 'En ruta'}</span></div>
+      <span class="b" style="font-size:18px">${esc(v.nombre)}</span><span class="sm mut">${esc([ab.ori, ab.des].filter(String).join(' → ') || 'Sin destino')}${ab.hsal ? ' · salió ' + esc(ab.hsal) : ''}${fl ? ' · ' + fl + ' falla' + (fl === 1 ? '' : 's') + ' reportada' + (fl === 1 ? '' : 's') : ''}</span>
+      <div class="grid2"><button class="btn p" data-a="abrirReg">Registrar regreso</button><button class="btn" data-a="abrirFalla">Reportar falla</button></div></div>`;
+  } else {
+    h += `<button class="btn p w" data-a="abrirSal">Salir de viaje</button>`;
+  }
+  const asg = (T.asignados || []).filter((p) => !S.pend.some((x) => x.kind === 'sal' && x.args[0].pedido === p.id));
+  if (asg.length && !ab) h += `<div class="card" style="border-color:var(--warn)"><h3>Viajes asignados</h3>${asg.map((p) => `<div class="col" style="gap:6px;padding-top:8px;border-top:1px solid var(--soft)"><span class="b sm">${esc(p.tipo)} · hasta ${esc(p.des)}</span>
+    <span class="xs mut">${esc(p.num)} · ${fCorta(p.para)}${p.hora ? ' ' + esc(p.hora) : ''} · ${esc(p.veh)}${p.det ? ' · ' + esc(p.det) : ''}${p.nota ? ' · ' + esc(p.nota) : ''}</span>
+    <button class="btn o" data-a="salPedido" data-id="${esc(p.id)}">Salir con este pedido</button></div>`).join('')}</div>`;
+  const ultLoc = S.pend.filter((x) => x.kind === 'sal').map((x) => x.args[0].veh).pop();
+  const mv = vehDe(ab ? ab.veh : ultLoc || T.ultVeh);
+  if (mv) {
+    const est = { 'Operativo': 't-ok', 'En ruta': 't-n', 'Con observaciones': 't-warn', 'Fuera de servicio': 't-bad' }[mv.estado] || 't-n';
+    const mant = mv.mant === 'Vencido' ? 'Mantenimiento vencido' : mv.mant === 'Próximo' ? 'Mantenimiento próximo' : mv.mant === 'Al día' ? 'Mantenimiento al día' : 'Sin dato de mantenimiento';
+    const falta = mv.restante !== '' && mv.restante != null ? ' · faltan ' + fmt(mv.restante) + ' ' + (mv.und === 'h' ? 'horas' : mv.und || '') : mv.diasRest !== '' && mv.diasRest != null ? ' · faltan ' + mv.diasRest + ' días' : '';
+    h += `<div class="card"><div class="between"><h3>Mi vehículo</h3><span class="tag ${est}">${esc(mv.estado)}</span></div><span class="b sm">${esc(mv.nombre)}${mv.placa ? ' · ' + esc(mv.placa) : ''}</span>
+      <span class="xs ${mv.mant === 'Vencido' ? 'b" style="color:var(--bad)' : 'mut'}">${mant}${falta}</span>${mv.motivo && mv.estado !== 'En ruta' ? `<span class="xs mut">${esc(mv.motivo)}</span>` : ''}</div>`;
+  }
+  return h;
+}
+V.salida = () => {
+  const D = S.data, T = D && D.transp, f = S.f; if (!T || !f) return V.hoy();
+  const v = vehDe(f.veh); const ped = f.pedido ? (T.asignados || []).find((p) => p.id === f.pedido) : null;
+  return `<div class="scr"><div class="top">${back('Cancelar')}<h2>Salida del vehículo</h2><span class="sm mut">Revisión antes de salir (F-A06-03)</span></div><div class="body" style="gap:12px">
+    ${ped ? `<p class="note n-n">Pedido ${esc(ped.num)}: ${esc(ped.tipo)} hasta ${esc(ped.des)}${ped.det ? ' · ' + esc(ped.det) : ''}</p>` : ''}
+    <span class="l">Vehículo</span><div class="col" style="gap:6px">${T.veh.map((x) => { const no = x.estado === 'Fuera de servicio' || (x.estado === 'En ruta' && x.id !== f.veh); return `<button class="sec" data-a="fset" data-k="veh" data-v="${esc(x.id)}" ${no ? 'disabled' : ''} style="padding:10px 12px;${f.veh === x.id ? 'border-color:var(--acc);background:var(--accbg)' : ''}"><span class="col" style="flex:1;text-align:left"><span class="b sm">${esc(x.nombre)}${x.placa ? ' · ' + esc(x.placa) : ''}</span><span class="xs mut">${esc(x.estado)}${x.estado === 'Fuera de servicio' ? ': ' + esc(x.motivo) : ''}</span></span></button>`; }).join('')}</div>
+    <label class="l" for="f_obra">Obra</label><select id="f_obra" class="f" data-i="f" data-k="obra"><option value="">Sin obra</option>${D.obras.map((o) => `<option value="${esc(o.id)}"${f.obra === o.id ? ' selected' : ''}>${esc(o.nombre)}</option>`).join('')}</select>
+    <div class="grid2"><div class="col">${inF('ori', 'Desde', 'placeholder="Almacén"')}</div><div class="col">${inF('des', 'Hasta', 'placeholder="Obra o lugar"')}</div></div>
+    ${inF('carga', 'Carga o pasajeros', 'placeholder="Qué lleva"')}
+    ${v && (v.und === 'km' || v.und === 'h') ? inF('lect', v.und === 'km' ? 'Kilometraje del odómetro al salir' : 'Horómetro al salir', 'type="text" inputmode="decimal" placeholder="' + (v.lect !== '' ? 'Último: ' + fmt(v.lect) : '') + '"') : ''}
+    <span class="l">Revisión del vehículo</span>
+    ${T.checks.map((c) => `<div class="between" style="gap:8px"><span class="sm" style="flex:1">${esc(c[1])}</span><div class="seg" style="width:150px">${['OK', 'Obs'].map((o) => `<button class="${(f.chk || {})[c[0]] === o ? 'on ' + (o === 'OK' ? 'g' : 'r') : ''}" data-a="fchk" data-k="${c[0]}" data-v="${o}">${o === 'OK' ? 'Bien' : 'Observado'}</button>`).join('')}</div></div>`).join('')}
+    <label class="l" for="f_nota">Observaciones</label><textarea id="f_nota" class="f" rows="2" data-i="f" data-k="nota" placeholder="Obligatorio si marcaste algo observado">${esc(f.nota || '')}</textarea>
+    <span class="l">¿Puede circular?</span>${segF('ok', [['si', 'Sí, sale'], ['no', 'No, queda fuera de servicio']], { si: 'g', no: 'r' })}
+    ${navigator.onLine ? '' : '<p class="note n-warn">Sin señal: la salida queda en el celular y se envía sola cuando haya señal.</p>'}
+  </div><div class="foot"><button class="btn p" data-a="guardarSal">Registrar salida</button></div></div>`;
+};
+V.regreso = () => {
+  const D = S.data, T = D && D.transp, f = S.f; if (!T || !f) return V.hoy();
+  const ab = viajeAbierto(); if (!ab) return V.hoy();
+  const v = vehDe(ab.veh) || { und: 'km', nombre: ab.veh };
+  return `<div class="scr"><div class="top">${back('Cancelar')}<h2>Regreso del viaje</h2><span class="sm mut">${esc(v.nombre)} · ${esc([ab.ori, ab.des].filter(String).join(' → '))}</span></div><div class="body" style="gap:12px">
+    ${v.und === 'km' || v.und === 'h' ? inF('lect', v.und === 'km' ? 'Kilometraje al llegar' : 'Horómetro al llegar', 'type="text" inputmode="decimal"') : ''}
+    <span class="l">Combustible cargado en el viaje</span>
+    <div class="grid2"><div class="col">${inF('lt', 'Litros', 'type="text" inputmode="decimal" placeholder="0"')}</div><div class="col">${inF('bs', 'Bs', 'type="text" inputmode="decimal" placeholder="0,00"')}</div></div>
+    <div class="grid2"><div class="col">${inF('fac', 'N° de factura', 'inputmode="numeric"')}</div><div class="col">${inF('est', 'Estación', 'placeholder="Nombre y lugar"')}</div></div>
+    <span class="l">¿Cómo se pagó?</span><div class="col" style="gap:6px">${(T.pagos || []).map((p) => `<button class="sec" data-a="fset" data-k="pago" data-v="${esc(p)}" style="padding:10px 12px;${f.pago === p ? 'border-color:var(--acc);background:var(--accbg)' : ''}"><span class="b sm">${esc(p)}</span></button>`).join('')}</div>
+    ${f.pago === 'Fondo a rendir' ? '<p class="note n-n">El gasto entra solo a tu rendición de cuentas, con la foto de la factura.</p>' : ''}
+    ${fotoF('Foto de la factura')}
+    <span class="l">¿Hubo novedades o fallas?</span>${segF('nov', [['no', 'Sin novedades'], ['si', 'Con novedades']], { no: 'g', si: 'r' })}
+    <label class="l" for="f_nota">Qué pasó</label><textarea id="f_nota" class="f" rows="2" data-i="f" data-k="nota" placeholder="Obligatorio si hubo novedades">${esc(f.nota || '')}</textarea>
+    <span class="l">¿Puede seguir circulando?</span>${segF('ok', [['si', 'Sí'], ['no', 'No, queda fuera de servicio']], { si: 'g', no: 'r' })}
+  </div><div class="foot"><button class="btn p" data-a="guardarReg">Registrar regreso</button></div></div>`;
+};
+V.falla = () => {
+  const f = S.f, ab = viajeAbierto(); if (!f || !ab) return V.hoy();
+  const v = vehDe(ab.veh) || { nombre: ab.veh };
+  return `<div class="scr"><div class="top">${back('Cancelar')}<h2>Falla en ruta</h2><span class="sm mut">${esc(v.nombre)}</span></div><div class="body" style="gap:12px">
+    <label class="l" for="f_nota">Qué falla</label><textarea id="f_nota" class="f" rows="3" data-i="f" data-k="nota" placeholder="Ej. se encendió la luz de temperatura">${esc(f.nota || '')}</textarea>
+    <span class="l">¿Puede seguir el viaje?</span>${segF('ok', [['si', 'Sí, con cuidado'], ['no', 'No puede seguir']], { si: 'g', no: 'r' })}
+    ${fotoF('Foto de la falla (opcional)')}
+    <p class="note n-n">Transporte recibe el aviso. Si no puede seguir, el vehículo queda fuera de servicio hasta que registren la reparación.</p>
+  </div><div class="foot"><button class="btn p" data-a="guardarFalla">Enviar a Transporte</button></div></div>`;
+};
+function pedidosHtml(D) {
+  const loc = S.pend.filter((x) => x.kind === 'pveh').map((x) => Object.assign({}, x.args[0], { num: 'Por enviar', estado: x.err ? 'No se envió' : 'Por enviar' }));
+  const L = loc.concat(D.pedidosV || []);
+  if (!L.length) return '';
+  const tone = { Pendiente: 't-warn', Asignado: 't-n', 'En ruta': 't-n', Atendido: 't-ok', Rechazado: 't-bad', Cancelado: 't-n' };
+  return `<div class="card"><h3>Mis pedidos de vehículo</h3>${L.slice(0, 6).map((p) => `<div class="between" style="align-items:flex-start"><span class="col"><span class="sm b">${esc(p.tipo)} · hasta ${esc(p.des)}</span><span class="xs mut">${esc(p.num)} · ${fCorta(p.para)}${p.hora ? ' ' + esc(p.hora) : ''}${p.veh ? ' · ' + esc(p.veh) : ''}${p.nota ? ' · ' + esc(p.nota) : ''}</span></span><span class="tag ${tone[p.estado] || 't-n'}">${esc(p.estado)}</span></div>`).join('')}</div>`;
+}
+V.pedveh = () => {
+  const D = S.data, f = S.f; if (!D || !f) return V.hoy();
+  return `<div class="scr"><div class="top">${back('Cancelar')}<h2>Pedir vehículo</h2><span class="sm mut">Lo atiende Transporte: asigna vehículo y chofer.</span></div><div class="body" style="gap:12px">
+    <label class="l" for="f_obra">Obra</label><select id="f_obra" class="f" data-i="f" data-k="obra">${D.obras.map((o) => `<option value="${esc(o.id)}"${f.obra === o.id ? ' selected' : ''}>${esc(o.nombre)}</option>`).join('')}</select>
+    <div class="grid2"><div class="col"><label class="l" for="f_para">Para el día</label><input id="f_para" class="f" type="date" min="${hoyLocal()}" data-i="f" data-k="para" value="${esc(f.para)}"></div><div class="col">${inF('hora', 'Hora', 'placeholder="08:00"')}</div></div>
+    <span class="l">Para qué</span><div class="col" style="gap:6px">${(D.pvTipos || []).map((t) => `<button class="sec" data-a="fset" data-k="tipo" data-v="${esc(t)}" style="padding:10px 12px;${f.tipo === t ? 'border-color:var(--acc);background:var(--accbg)' : ''}"><span class="b sm">${esc(t)}</span></button>`).join('')}</div>
+    <div class="grid2"><div class="col">${inF('ori', 'Desde', 'placeholder="Almacén central"')}</div><div class="col">${inF('des', 'Hasta', 'placeholder="Obra o lugar"')}</div></div>
+    <label class="l" for="f_det">Detalle</label><textarea id="f_det" class="f" rows="2" data-i="f" data-k="det" placeholder="Qué se lleva o cuántas personas">${esc(f.det || '')}</textarea>
+  </div><div class="foot"><button class="btn p" data-a="guardarPv">Enviar pedido</button></div></div>`;
+};
+/* tareas */
+function tkLocalEstado(t) {
+  const m = S.pend.filter((x) => x.fn === 'moverTareaOf' && x.args[0] === t.id).pop();
+  if (!m) return t.estado;
+  const e = m.args[1]; return e === 'Para revisar' && t.resp === t.por ? 'Hecha' : e;
+}
+function tareasMias(D) {
+  const me = D.me.email;
+  const loc = S.pend.filter((x) => x.fn === 'guardarTareaOf').map((x) => Object.assign({ id: '', estado: 'Por enviar', por: me, pasos: [] }, x.args[0], { local: true, resp: x.args[0].resp || me }));
+  return loc.concat((D.tareas || []).map((t) => Object.assign({}, t, { estado: tkLocalEstado(t) })));
+}
+function tareasHtml(D) {
+  const me = D.me.email, L = tareasMias(D), t = hoyLocal();
+  const ab = L.filter((x) => x.resp === me && x.estado !== 'Hecha' && x.estado !== 'Para revisar');
+  const ven = ab.filter((x) => x.limite < t), rev = L.filter((x) => x.estado === 'Para revisar' && x.por === me && x.resp !== me);
+  if (!L.length) return `<button class="sec" data-a="go" data-v="tareas"><span class="col" style="flex:1"><span class="b" style="font-size:17px">Mis tareas</span><span class="sm mut">Programa tus pendientes o asigna uno a un compañero</span></span>${CHEV}</button>`;
+  return `<button class="sec" data-a="go" data-v="tareas"${ven.length ? ' style="border-color:var(--bad)"' : ''}><span class="col" style="flex:1"><span class="b" style="font-size:17px">Mis tareas · ${ab.length}</span><span class="sm ${ven.length ? 'b" style="color:var(--bad)' : 'mut'}">${ven.length ? ven.length + ' vencida' + (ven.length === 1 ? '' : 's') : 'Ninguna vencida'}${rev.length ? ' · ' + rev.length + ' para revisar' : ''}</span></span>${CHEV}</button>`;
+}
+V.tareas = () => {
+  const D = S.data; if (!D) return V.hoy();
+  const me = D.me.email, tab = S.tkTab || 'mias', t = hoyLocal(), L = tareasMias(D);
+  const mias = L.filter((x) => x.resp === me && x.estado !== 'Hecha'), asg = L.filter((x) => x.por === me && x.resp !== me && x.estado !== 'Hecha'), hechas = L.filter((x) => x.estado === 'Hecha');
+  const lista = (tab === 'mias' ? mias : tab === 'asigne' ? asg : hechas).slice().sort((a, b) => (a.estado === 'Para revisar' ? -1 : 0) - (b.estado === 'Para revisar' ? -1 : 0) || String(a.limite).localeCompare(String(b.limite)));
+  const tone = { 'Por hacer': 't-n', 'En proceso': 't-n', 'En espera': 't-warn', 'Para revisar': 't-warn', 'Hecha': 't-ok', 'Por enviar': 't-n' };
+  const nom = (e) => { const u = (D.usuarios || []).find((x) => x.email === e); return u ? u.nombre : e; };
+  const card = (x) => {
+    const ven = x.estado !== 'Hecha' && x.limite < t, esResp = x.resp === me, asigno = x.por === me, propia = x.resp === x.por;
+    let acc = '';
+    if (!x.local && x.estado !== 'Hecha') {
+      if (esResp && x.estado === 'Por hacer') acc += `<button class="btn p" data-a="tkMov" data-id="${esc(x.id)}" data-e="En proceso">Empezar</button>`;
+      if (esResp && x.estado === 'En espera') acc += `<button class="btn" data-a="tkMov" data-id="${esc(x.id)}" data-e="En proceso">Ya no espera</button>`;
+      if (esResp && (x.estado === 'En proceso' || x.estado === 'Por hacer')) acc += `<button class="btn" data-a="tkMov" data-id="${esc(x.id)}" data-e="En espera">En espera</button>`;
+      if (esResp && x.estado !== 'Para revisar') acc += `<button class="btn p" data-a="tkMov" data-id="${esc(x.id)}" data-e="Para revisar">${propia ? 'Terminé' : 'Terminé: a revisión'}</button>`;
+      if (asigno && !propia && x.estado === 'Para revisar') acc += `<button class="btn p" data-a="tkMov" data-id="${esc(x.id)}" data-e="Hecha" style="background:var(--ok)">Dar por cumplida</button><button class="btn" data-a="tkMov" data-id="${esc(x.id)}" data-e="En proceso" data-dev="1">Devolver</button>`;
+    }
+    return `<div class="card" style="gap:8px${ven ? ';border-color:var(--bad)' : ''}"><div class="between" style="align-items:flex-start;gap:8px"><span class="b" style="line-height:1.3">${esc(x.titulo)}</span><span class="tag ${tone[x.estado] || 't-n'}">${esc(x.estado)}</span></div>
+      <span class="xs ${ven ? 'b" style="color:var(--bad)' : 'mut'}">${x.estado === 'Hecha' ? (x.aTiempo === true ? 'Cumplida a tiempo' : 'Cumplida') : (ven ? 'Venció el ' : 'Para el ') + fCorta(x.limite)}${x.area ? ' · ' + esc(x.area) : ''}${x.rep && x.rep !== 'No' ? ' · ' + esc(x.rep.toLowerCase()) : ''}${(x.pasos || []).length ? ' · pasos ' + x.pasos.filter((p) => p.ok).length + '/' + x.pasos.length : ''}</span>
+      <span class="xs mut">${propia ? 'Propia' : esResp ? 'La asignó ' + esc(nom(x.por)) : 'Responsable: ' + esc(nom(x.resp))}${x.req ? ' · pide entregable' : ''}</span>
+      ${x.espera && x.estado === 'En espera' ? `<span class="xs b" style="color:var(--warn)">Esperando: ${esc(x.espera)}</span>` : ''}${x.nota && x.estado !== 'Hecha' ? `<span class="xs b" style="color:var(--bad)">${esc(x.nota)}</span>` : ''}
+      ${acc ? `<div class="grid2">${acc}</div>` : ''}</div>`;
+  };
+  return `<div class="scr"><div class="top">${back('Hoy')}<h2>Mis tareas</h2>
+    <div class="seg">${[['mias', 'Mías · ' + mias.length], ['asigne', 'Asigné · ' + asg.length], ['hechas', 'Hechas']].map((x) => `<button class="${tab === x[0] ? 'on' : ''}" data-a="tkTab" data-v="${x[0]}">${x[1]}</button>`).join('')}</div></div>
+    <div class="body" style="gap:10px;padding-bottom:90px">${lista.length ? lista.map(card).join('') : `<p class="sm mut">${tab === 'mias' ? 'No tienes tareas abiertas.' : tab === 'asigne' ? 'No asignaste tareas abiertas.' : 'Todavía no hay tareas cumplidas.'}</p>`}</div>
+    <div class="foot"><button class="btn p" data-a="nuevaTk">+ Nueva tarea</button></div></div>`;
+};
+V.ntarea = () => {
+  const D = S.data, f = S.f; if (!D || !f) return V.hoy();
+  return `<div class="scr"><div class="top">${back('Cancelar', 'tareas')}<h2>Nueva tarea</h2><span class="sm mut">Para ti o para un compañero</span></div><div class="body" style="gap:12px">
+    ${inF('titulo', 'Qué hay que hacer', 'maxlength="160"')}
+    <label class="l" for="f_resp">Para quién</label><select id="f_resp" class="f" data-i="f" data-k="resp">${(D.usuarios || []).map((u) => `<option value="${esc(u.email)}"${f.resp === u.email ? ' selected' : ''}>${u.email === D.me.email ? 'Para mí' : esc(u.nombre) + (u.cargo ? ' · ' + esc(u.cargo) : '')}</option>`).join('')}</select>
+    <div class="grid2"><div class="col"><label class="l" for="f_limite">Fecha límite</label><input id="f_limite" class="f" type="date" data-i="f" data-k="limite" value="${esc(f.limite)}"></div>
+      <div class="col"><label class="l" for="f_area">Área</label><select id="f_area" class="f" data-i="f" data-k="area">${(D.areas || []).map((a) => `<option${f.area === a ? ' selected' : ''}>${esc(a)}</option>`).join('')}</select></div></div>
+    <span class="l">Prioridad</span>${segF('pri', ['Normal', 'Urgente'], { Urgente: 'r' })}
+    <label class="l" for="f_rep">Se repite</label><select id="f_rep" class="f" data-i="f" data-k="rep">${[['No', 'No se repite'], ['Cada semana', 'Cada semana'], ['Cada mes', 'Cada mes']].map((r) => `<option value="${r[0]}"${f.rep === r[0] ? ' selected' : ''}>${r[1]}</option>`).join('')}</select>
+    <label class="l" for="f_det">Detalle (opcional)</label><textarea id="f_det" class="f" rows="2" data-i="f" data-k="det">${esc(f.det || '')}</textarea>
+    <label class="l" for="f_pasos">Pasos (opcional, uno por línea)</label><textarea id="f_pasos" class="f" rows="3" data-i="f" data-k="pasos">${esc(f.pasos || '')}</textarea>
+    <button class="sec" data-a="fset" data-k="req" data-v="${f.req ? '' : '1'}" style="padding:10px 12px"><span class="col" style="flex:1;text-align:left"><span class="b sm">${f.req ? '☑' : '☐'} Para cerrarla hace falta el entregable</span><span class="xs mut">El enlace al archivo en el Drive de la empresa</span></span></button>
+    ${f.resp && f.resp !== D.me.email ? '<p class="note n-n">La verá en su «Te toca a ti». Cuando la termine, vuelve a ti para que la des por cumplida.</p>' : ''}
+  </div><div class="foot"><button class="btn p" data-a="guardarTk">Crear tarea</button></div></div>`;
+};
 /* ---------- 4.5 · Rendición de cuentas: el responsable registra sus gastos con la foto y rinde el fondo (también sin señal) ---------- */
 function fondoVivo(f) { return f && (f.estado === 'Abierto' || f.estado === 'Observado'); }
 function gastosLocales(id) { return S.pend.filter((x) => x.kind === 'gasto' && x.fn === 'registrarGasto' && x.args[0] && x.args[0].fondo === id).map((x) => Object.assign({}, x.args[0], { estado: x.err ? 'No se envió' : 'Por enviar', err: x.err, local: true })); }
@@ -1022,6 +1188,7 @@ function render() {
   if ((v === 'partes' || v === 'parteVer') && !S.hist) S.view = 'hoy';
   if (v === 'sol' && !S.sol) S.view = 'hoy';
   if (v === 'gasto' && !S.gasto) S.view = 'hoy';
+  if (['salida', 'regreso', 'falla', 'pedveh', 'ntarea'].indexOf(v) >= 0 && !S.f) S.view = 'hoy';
   const app = $('#app');
   app.className = S.view === 'prog' || S.view === 'progAdd' || S.view === 'ppc' ? 'wide' : '';
   const keepScroll = S.view === S.prev;
@@ -1154,6 +1321,86 @@ const A = {
   abrirPartes: () => abrirPartes(),
   verParte: (el) => { S.histSel = el.dataset.id; S.view = 'parteVer'; render(); },
   enviarAnt: (el) => { const f = el.dataset.f; const b = ((S.data && S.data.borradores) || []).find((x) => x.fecha === f); const h = (S.hist || []).find((x) => x.fecha === f); enviarAnterior(f, (b && b.secciones) || (h && h.secciones) || []); },
+  fset: (el) => { if (!S.f) return; document.querySelectorAll('[data-i="f"]').forEach((i) => { S.f[i.dataset.k] = i.value; }); S.f[el.dataset.k] = el.dataset.v; render(); },
+  fchk: (el) => { if (!S.f) return; document.querySelectorAll('[data-i="f"]').forEach((i) => { S.f[i.dataset.k] = i.value; }); S.f.chk = Object.assign({}, S.f.chk, { [el.dataset.k]: el.dataset.v }); render(); },
+  fotoF: () => { document.querySelectorAll('[data-i="f"]').forEach((i) => { S.f[i.dataset.k] = i.value; }); const f = $('#camF'); f.value = ''; f.click(); },
+  abrirSal: () => { const T = S.data.transp; S.f = { veh: T.ultVeh && vehDe(T.ultVeh) && vehDe(T.ultVeh).estado !== 'Fuera de servicio' ? T.ultVeh : '', obra: S.obra || '', ori: '', des: '', carga: '', lect: '', chk: {}, nota: '', ok: '', pedido: '' }; S.view = 'salida'; render(); },
+  salPedido: (el) => { const p = (S.data.transp.asignados || []).find((x) => x.id === el.dataset.id); if (!p) return; S.f = { veh: p.veh, obra: p.obra, ori: '', des: p.des, carga: p.det || '', lect: '', chk: {}, nota: '', ok: '', pedido: p.id }; S.view = 'salida'; render(); },
+  guardarSal: async () => {
+    const f = S.f; document.querySelectorAll('[data-i="f"]').forEach((i) => { f[i.dataset.k] = i.value; });
+    const v = vehDe(f.veh); if (!v) return toast('Elige el vehículo.', true);
+    if ((v.und === 'km' || v.und === 'h') && !(String(f.lect).trim() !== '' && num(f.lect) >= 0)) return toast(v.und === 'km' ? 'Escribe el kilometraje del odómetro.' : 'Escribe la lectura del horómetro.', true);
+    const T = S.data.transp; const falta = T.checks.filter((c) => !(f.chk || {})[c[0]]);
+    if (falta.length) return toast('Marca la revisión de: ' + falta.map((c) => c[1]).join(', ') + '.', true);
+    const obs = T.checks.filter((c) => f.chk[c[0]] === 'Obs');
+    if ((obs.length || f.ok === 'no') && String(f.nota).trim().length < 5) return toast('Describe lo observado.', true);
+    if (!f.ok) return toast('Indica si el vehículo puede circular.', true);
+    const cid = newId();
+    const a = { cid: cid, fecha: hoyLocal(), veh: v.id, obra: f.obra, ori: f.ori.trim(), des: f.des.trim(), carga: f.carga.trim(), chk: f.chk, salNota: String(f.nota).trim(), salOk: f.ok === 'si', pedido: f.pedido || '' };
+    if (v.und === 'km') a.ks = num(f.lect); else if (v.und === 'h') a.hs = num(f.lect);
+    await enqueue('sal:' + cid, 'salidaViaje', [a], 'Salida ' + v.nombre, 'sal');
+    S.f = null; S.view = 'hoy'; render();
+    toast(a.salOk ? (navigator.onLine ? 'Salida registrada: buen viaje.' : 'Salida guardada en el celular.') : 'Registrado: el vehículo queda fuera de servicio.');
+  },
+  abrirReg: () => { S.f = { lect: '', lt: '', bs: '', fac: '', est: '', pago: (S.data.transp.pagos || [])[0] || '', foto: null, nov: '', nota: '', ok: '' }; S.view = 'regreso'; render(); },
+  guardarReg: async () => {
+    const f = S.f; document.querySelectorAll('[data-i="f"]').forEach((i) => { f[i.dataset.k] = i.value; });
+    const ab = viajeAbierto(); if (!ab) return; const v = vehDe(ab.veh) || { und: '' };
+    if ((v.und === 'km' || v.und === 'h') && String(f.lect).trim() === '') return toast(v.und === 'km' ? 'Escribe el kilometraje al llegar.' : 'Escribe el horómetro al llegar.', true);
+    if (!f.nov) return toast('Indica si hubo novedades.', true);
+    if ((f.nov === 'si' || f.ok === 'no') && String(f.nota).trim().length < 5) return toast('Describe qué pasó.', true);
+    if (!f.ok) return toast('Indica si el vehículo puede seguir circulando.', true);
+    const bs = num(f.bs);
+    if (bs > 0 && f.pago === 'Fondo a rendir' && !f.foto) return toast('Pagado con tu fondo: toma la foto de la factura.', true);
+    if (bs > 0 && !String(f.fac).trim() && !confirm('Cargaste combustible pero no anotaste el N° de factura. Contabilidad lo necesita. ¿Registrar igual?')) return;
+    const r = { cid: newId(), lt: String(f.lt).trim() === '' ? '' : num(f.lt), bs: String(f.bs).trim() === '' ? '' : bs, fac: String(f.fac).trim(), est: String(f.est).trim(), pago: f.pago, novedades: f.nov === 'si', regNota: String(f.nota).trim(), regOk: f.ok === 'si',
+      foto: f.foto ? { b64: f.foto, type: 'image/jpeg' } : null };
+    if (v.und === 'km') r.kl = num(f.lect); else if (v.und === 'h') r.hl = num(f.lect);
+    await enqueue('reg:' + ab.id, 'regresoViaje', [ab.id, r], 'Regreso ' + (v.nombre || ab.veh), 'reg');
+    S.f = null; S.view = 'hoy'; render();
+    toast(navigator.onLine ? 'Regreso registrado.' : 'Regreso guardado en el celular.');
+  },
+  abrirFalla: () => { S.f = { nota: '', ok: '', foto: null }; S.view = 'falla'; render(); },
+  guardarFalla: async () => {
+    const f = S.f; document.querySelectorAll('[data-i="f"]').forEach((i) => { f[i.dataset.k] = i.value; });
+    const ab = viajeAbierto(); if (!ab) return;
+    if (String(f.nota).trim().length < 5) return toast('Describe la falla.', true);
+    if (!f.ok) return toast('Indica si el vehículo puede seguir.', true);
+    const cid = newId();
+    await enqueue('falla:' + cid, 'fallaRuta', [{ viaje: ab.id, cid: cid, nota: String(f.nota).trim(), puede: f.ok === 'si', foto: f.foto ? { b64: f.foto, type: 'image/jpeg' } : null }], 'Falla en ruta', 'falla');
+    S.f = null; S.view = 'hoy'; render(); toast(navigator.onLine ? 'Falla enviada a Transporte.' : 'Guardada: se enviará cuando haya señal.');
+  },
+  nuevoPv: () => { S.f = { obra: S.obra || ((S.data.obras[0] || {}).id || ''), para: hoyLocal(), hora: '', tipo: '', ori: '', des: '', det: '' }; S.view = 'pedveh'; render(); },
+  guardarPv: async () => {
+    const f = S.f; document.querySelectorAll('[data-i="f"]').forEach((i) => { f[i.dataset.k] = i.value; });
+    if (!f.tipo) return toast('Elige para qué es el vehículo.', true);
+    if (!String(f.des).trim()) return toast('Escribe a dónde debe ir.', true);
+    if (!f.para || f.para < hoyLocal()) return toast('Revisa la fecha.', true);
+    const cid = newId();
+    await enqueue('pv:' + cid, 'pedirVehiculo', [{ cid: cid, obra: f.obra, para: f.para, hora: String(f.hora).trim(), tipo: f.tipo, ori: String(f.ori).trim(), des: String(f.des).trim(), det: String(f.det).trim() }], 'Pedido de vehículo', 'pveh');
+    S.f = null; S.view = 'hoy'; render(); toast(navigator.onLine ? 'Pedido enviado a Transporte.' : 'Guardado: se enviará cuando haya señal.');
+  },
+  tkTab: (el) => { S.tkTab = el.dataset.v; render(); },
+  nuevaTk: () => { const D = S.data; const cg = String(D.me.cargo || '').toLowerCase(); S.f = { titulo: '', resp: D.me.email, limite: addDays(hoyLocal(), 3), area: (D.areas || []).find((a) => cg.indexOf(a.toLowerCase().slice(0, 6)) >= 0) || 'Administración', pri: 'Normal', rep: 'No', det: '', pasos: '', req: '' }; S.view = 'ntarea'; render(); },
+  guardarTk: async () => {
+    const f = S.f; document.querySelectorAll('[data-i="f"]').forEach((i) => { f[i.dataset.k] = i.value; });
+    if (String(f.titulo).trim().length < 3) return toast('Escribe qué hay que hacer.', true);
+    if (!f.limite) return toast('Elige la fecha límite.', true);
+    const cid = newId();
+    const x = { cid: cid, titulo: String(f.titulo).trim(), resp: f.resp, limite: f.limite, area: f.area, pri: f.pri || 'Normal', rep: f.rep || 'No', det: String(f.det).trim(), req: !!f.req,
+      pasos: String(f.pasos || '').split('\n').map((p) => p.trim()).filter(Boolean) };
+    await enqueue('tarea:' + cid, 'guardarTareaOf', [x], 'Tarea: ' + x.titulo, 'tarea');
+    S.f = null; S.view = 'tareas'; S.tkTab = x.resp === S.data.me.email ? 'mias' : 'asigne'; render(); toast(navigator.onLine ? 'Tarea creada.' : 'Guardada: se enviará cuando haya señal.');
+  },
+  tkMov: async (el) => {
+    const id = el.dataset.id, e = el.dataset.e; const t = (S.data.tareas || []).find((x) => x.id === id); if (!t) return;
+    const extra = {};
+    if (e === 'En espera') { const m = prompt('¿Qué o a quién estás esperando?'); if (m === null) return; if (m.trim().length < 5) return toast('Escribe qué esperas (al menos 5 letras).', true); extra.espera = m.trim(); }
+    if (el.dataset.dev) { const m = prompt('¿Qué falta o qué hay que corregir?'); if (m === null) return; if (m.trim().length < 5) return toast('Escribe qué falta.', true); extra.nota = m.trim(); }
+    if (e === 'Para revisar' && t.req && !t.ent) { const m = prompt('Pega el enlace del entregable (archivo en el Drive de la empresa):'); if (m === null) return; if (!/^https?:\/\//i.test(m.trim())) return toast('Debe ser un enlace que empiece con https://', true); extra.ent = m.trim(); }
+    await enqueue('tm:' + id + ':' + Date.now(), 'moverTareaOf', [id, e, extra], 'Tarea: ' + t.titulo, 'tarea');
+    render(); toast(navigator.onLine ? 'Tarea actualizada.' : 'Guardado: se enviará cuando haya señal.');
+  },
   abrirFondo: (el) => { S.fondoSel = el.dataset.id; S.view = 'fondo'; render(); window.scrollTo(0, 0); },
   nuevoGasto: () => { const f = (S.data.fondos || []).find((x) => x.id === S.fondoSel); S.gasto = { fecha: hoyLocal(), concepto: '', monto: '', comp: 'Factura', nro: '', nit: '', prov: '', det: '', foto: null, obra: (f && f.obra) || S.obra || '' }; S.view = 'gasto'; render(); window.scrollTo(0, 0); },
   gComp: (el) => { leerGasto(); S.gasto.comp = el.dataset.c; render(); },
@@ -1284,6 +1531,7 @@ document.addEventListener('input', (e) => {
   else if (k === 'progQ') { S.progQ = v; const P = S.prog; const sem = P.semanas.find((w) => w.lunes === S.progSem); const en = P.plan.filter((p) => p.semana === sem.lunes).map((p) => p.tarea); const q = v.trim().toLowerCase(); $('#tarList').innerHTML = tarList(P.tareas.filter((t) => en.indexOf(t.id) < 0 && (!q || (t.nombre + ' ' + t.lugar + ' ' + t.item).toLowerCase().indexOf(q) >= 0))); }
   else if (k === 'nv') { S.nueva[el.dataset.k] = v; }
   else if (k === 'gas') { if (S.gasto) S.gasto[el.dataset.k] = v; }
+  else if (k === 'f') { if (S.f) S.f[el.dataset.k] = v; }
 });
 function refreshSolBtn() { const b = document.querySelector('[data-a="enviarSol"]'); const s = S.sol; if (!b || !s) return; b.disabled = !solListo(); b.textContent = solBtnTxt(); const a = document.querySelector('[data-a="solAdd"]'); if (a) a.disabled = !solActual(); }
 document.addEventListener('change', (e) => {
@@ -1317,6 +1565,10 @@ function comprimir(file) {
     img.src = url;
   });
 }
+$('#camF').addEventListener('change', async (e) => {
+  const f = (e.target.files || [])[0]; if (!f || !S.f) return;
+  try { S.f.foto = await comprimir(f); render(); } catch (x) { toast(x.message, true); }
+});
 $('#camGas').addEventListener('change', async (e) => {
   const f = (e.target.files || [])[0]; if (!f || !S.gasto) return;
   try { S.gasto.foto = await comprimir(f); render(); } catch (x) { toast(x.message, true); }
